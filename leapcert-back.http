@@ -1,0 +1,6 @@
+@leapcert_back_HostAddress = http://localhost:5036
+
+GET {{leapcert_back_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
