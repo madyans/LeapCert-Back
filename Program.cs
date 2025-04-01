@@ -1,44 +1,67 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
+using wsapi.Context;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// Configuração do CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", corsBuilder =>
+    {
+        corsBuilder.WithOrigins(builder.Configuration["CORS:AllowedOrigins"]);
+        corsBuilder.AllowAnyMethod();
+        corsBuilder.AllowAnyHeader();
+        corsBuilder.AllowCredentials();
+    });
+});
+
+// Adiciona controllers
+builder.Services.AddControllers();
+
+// Obtém a string de conexão
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("A string de conexão não foi encontrada no appsettings.json.");
+}
+
+// Configuração do banco de dados MySQL
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+{
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+});
+
+// Configuração do Swagger
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "LeapCertService",
+        Version = "v1",
+        Description = "API do LeapCert muito froggers.",
+    });
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Middleware do Swagger
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "LeapCert v1");
+    c.RoutePrefix = string.Empty;
+});
 
-app.UseHttpsRedirection();
+// Middleware do CORS
+app.UseCors("CorsPolicy");
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+// Habilita WebSockets
+app.UseWebSockets();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+// Mapeia os controllers
+app.MapControllers();
 
-app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+// Executa a aplicação
+await app.RunAsync();
