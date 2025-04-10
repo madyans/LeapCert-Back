@@ -11,6 +11,7 @@ jobs:
       - name: Enviar notificação para o Discord (Back-End)
         run: |
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
           DATA_HORA=$(TZ=America/Sao_Paulo date "+%a %d %b %Y %T %Z")
 
           curl -H "Content-Type: application/json" \
@@ -18,7 +19,7 @@ jobs:
           -d "{
             \"embeds\": [{
               \"title\": \"🛠️ Atualização no Back-End\",
-              \"description\": \"O back-end foi atualizado com um novo commit realizado por **${{ github.actor }}**.\nEssas alterações já estão disponíveis na branch **main** do repositório **${{ github.repository }}**.\",
+              \"description\": \"**${{ github.actor }}** realizou um novo commit no repositório **${{ github.repository }}**.\n\n💬 **Mensagem do commit:**\n\`\`\`${COMMIT_MSG}\`\`\`\",
               \"color\": 16753920,
               \"fields\": [
                 {
