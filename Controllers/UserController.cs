@@ -1,4 +1,6 @@
+using System.ComponentModel.Design;
 using leapcert_back.Dtos.Users;
+using leapcert_back.Helpers;
 using leapcert_back.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,11 +14,13 @@ public class UserController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<UserController> _logger;
-
-    public UserController(ApplicationDbContext context, ILogger<UserController> logger)
+    private readonly HelperService _helperService;
+    
+    public UserController(ApplicationDbContext context, ILogger<UserController> logger, HelperService helperService )
     {
         _context = context;
         _logger = logger;
+        _helperService = helperService;
     }
 
     [HttpGet("getAllUsers")]
@@ -70,7 +74,7 @@ public class UserController : ControllerBase
                 nome = usuario.nome,
                 email = usuario.email,
                 usuario = usuario.usuario,
-                senha = usuario.senha,
+                senha = _helperService.HashMd5(usuario.senha),
                 avaliacao = 0,
                 created_at = DateTime.Now,
                 perfil = usuario.perfil,

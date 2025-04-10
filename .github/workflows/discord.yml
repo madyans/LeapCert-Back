@@ -1,0 +1,44 @@
+name: Notificar no Discord - Back-End
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar notificação para o Discord (Back-End)
+        run: |
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          DATA_HORA=$(TZ=America/Sao_Paulo date "+%a %d %b %Y %T %Z")
+
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"🛠️ Atualização no Back-End\",
+              \"description\": \"O back-end foi atualizado com um novo commit realizado por **${{ github.actor }}**.\nEssas alterações já estão disponíveis na branch **main** do repositório **${{ github.repository }}**.\",
+              \"color\": 16753920,
+              \"fields\": [
+                {
+                  \"name\": \"🔗 Commit\",
+                  \"value\": \"[Ver commit](${COMMIT_URL})\"
+                },
+                {
+                  \"name\": \"📦 Branch\",
+                  \"value\": \"${{ github.ref_name }}\",
+                  \"inline\": true
+                },
+                {
+                  \"name\": \"🕒 Hora\",
+                  \"value\": \"${DATA_HORA}\",
+                  \"inline\": true
+                }
+              ],
+              \"footer\": {
+                \"text\": \"Back-end atualizado com sucesso 🚀\"
+              }
+            }]
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK }}

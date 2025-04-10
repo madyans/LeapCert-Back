@@ -1,3 +1,4 @@
+using leapcert_back.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using wsapi.Context;
@@ -45,6 +46,8 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+builder.Services.AddScoped<HelperService>();
 
 // Middleware do Swagger
 app.UseSwagger();
