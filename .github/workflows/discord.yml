@@ -1,45 +1,58 @@
-name: Notificar no Discord - Back-End
+name: "Notificar no Discord - Back-End"
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   notify:
     runs-on: ubuntu-latest
-    steps:
-      - name: Enviar notificação para o Discord (Back-End)
-        run: |
-          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
-          DATA_HORA=$(TZ=America/Sao_Paulo date "+%a %d %b %Y %T %Z")
 
+    steps:
+      - name: Verificar se o webhook está setado
+        run: |
+          if [ -z "${{ secrets.DISCORD_WEBHOOK_BACK }}" ]; then
+            echo "⚠️ DISCORD_WEBHOOK_BACK está vazio"
+            exit 1
+          else
+            echo "✅ DISCORD_WEBHOOK_BACK está configurado"
+          fi
+
+      - name: Enviar notificação para o Discord (Back-End)
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_BACK }}
+          COMMIT_URL: "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          COMMIT_MSG: "${{ github.event.head_commit.message }}"
+          COMMIT_AUTHOR: "${{ github.actor }}"
+          COMMIT_BRANCH: "${{ github.ref_name }}"
+        run: |
+          DATA_HORA=$(TZ=America/Sao_Paulo date "+%a %d %b %Y %T %Z")
           curl -H "Content-Type: application/json" \
-          -X POST \
-          -d "{
-            \"embeds\": [{
-              \"title\": \"🛠️ Atualização no Back-End\",
-              \"description\": \"**${{ github.actor }}** realizou um novo commit no repositório **${{ github.repository }}**.\n\n💬 **Mensagem do commit:**\n\`\`\`${COMMIT_MSG}\`\`\`\",
-              \"color\": 16753920,
-              \"fields\": [
-                {
-                  \"name\": \"🔗 Commit\",
-                  \"value\": \"[Ver commit](${COMMIT_URL})\"
-                },
-                {
-                  \"name\": \"📦 Branch\",
-                  \"value\": \"${{ github.ref_name }}\",
-                  \"inline\": true
-                },
-                {
-                  \"name\": \"🕒 Hora\",
-                  \"value\": \"${DATA_HORA}\",
-                  \"inline\": true
+            -X POST \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"🛠️ Atualização no Back-End\",
+                \"description\": \"**${COMMIT_AUTHOR}** enviou um novo commit para o repositório **${GITHUB_REPOSITORY}**.\n\n💬 **Mensagem do commit:**\n${COMMIT_MSG}\",
+                \"color\": 15158332,
+                \"fields\": [
+                  {
+                    \"name\": \"🔗 Commit\",
+                    \"value\": \"[Ver commit](${COMMIT_URL})\"
+                  },
+                  {
+                    \"name\": \"📦 Branch\",
+                    \"value\": \"${COMMIT_BRANCH}\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"🕒 Hora\",
+                    \"value\": \"${DATA_HORA}\",
+                    \"inline\": true
+                  }
+                ],
+                \"footer\": {
+                  \"text\": \"Back-end turbinado com novidades ⚙️🚀\"
                 }
-              ],
-              \"footer\": {
-                \"text\": \"Back-end atualizado com sucesso 🚀\"
-              }
-            }]
-          }" \
-          ${{ secrets.DISCORD_WEBHOOK }}
+              }]
+            }" \
+            "$DISCORD_WEBHOOK"
