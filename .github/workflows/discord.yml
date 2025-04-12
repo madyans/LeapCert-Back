@@ -11,16 +11,16 @@ jobs:
     steps:
       - name: Verificar se o webhook está setado
         run: |
-          if [ -z "${{ secrets.DISCORD_WEBHOOK_BACK }}" ]; then
-            echo "⚠️ DISCORD_WEBHOOK_BACK está vazio"
+          if [ -z "${{ secrets.DISCORD_WEBHOOK }}" ]; then
+            echo "⚠️ DISCORD_WEBHOOK está vazio"
             exit 1
           else
-            echo "✅ DISCORD_WEBHOOK_BACK está configurado"
+            echo "✅ DISCORD_WEBHOOK está configurado"
           fi
 
       - name: Enviar notificação para o Discord (Back-End)
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_BACK }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           COMMIT_URL: "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
           COMMIT_MSG: "${{ github.event.head_commit.message }}"
           COMMIT_AUTHOR: "${{ github.actor }}"
