@@ -2,7 +2,8 @@ name: "Notificar no Discord - Back-End"
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   notify:
@@ -11,47 +12,37 @@ jobs:
     steps:
       - name: Verificar se o webhook está setado
         run: |
-          if [ -z "${{ secrets.DISCORD_WEBHOOK }}" ]; then
-            echo "⚠️ DISCORD_WEBHOOK está vazio"
+          if [ -z "${{ secrets.DISCORD_WEBHOOK_BACK }}" ]; then
+            echo "⚠️ DISCORD_WEBHOOK_BACK está vazio"
             exit 1
           else
-            echo "✅ DISCORD_WEBHOOK está configurado"
+            echo "✅ DISCORD_WEBHOOK_BACK está configurado"
           fi
 
       - name: Enviar notificação para o Discord (Back-End)
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_BACK }}
           COMMIT_URL: "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          COMPARE_URL: "${{ github.event.compare }}"
           COMMIT_MSG: "${{ github.event.head_commit.message }}"
-          COMMIT_AUTHOR: "${{ github.actor }}"
+          COMMIT_AUTHOR: "${{ github.event.head_commit.author.name }}"
           COMMIT_BRANCH: "${{ github.ref_name }}"
+          REPO_NAME: "${{ github.repository }}"
+          COMMIT_SHA: "${{ github.sha }}"
         run: |
-          DATA_HORA=$(TZ=America/Sao_Paulo date "+%a %d %b %Y %T %Z")
+          SHORT_SHA=${COMMIT_SHA:0:7}
+          DATA_HORA=$(TZ=America/Sao_Paulo date "+%d/%m/%Y, %H:%M")
           curl -H "Content-Type: application/json" \
             -X POST \
             -d "{
               \"embeds\": [{
-                \"title\": \"🛠️ Atualização no Back-End\",
-                \"description\": \"**${COMMIT_AUTHOR}** enviou um novo commit para o repositório **${GITHUB_REPOSITORY}**.\n\n💬 **Mensagem do commit:**\n${COMMIT_MSG}\",
+                \"author\": {
+                  \"name\": \"${COMMIT_AUTHOR}\"
+                },
+                \"description\": \"${COMMIT_AUTHOR} pushed to branch **${COMMIT_BRANCH}** of **${REPO_NAME}** ([Compare changes](${COMPARE_URL}))\\n[${SHORT_SHA}](${COMMIT_URL}): ${COMMIT_MSG}\",
                 \"color\": 15158332,
-                \"fields\": [
-                  {
-                    \"name\": \"🔗 Commit\",
-                    \"value\": \"[Ver commit](${COMMIT_URL})\"
-                  },
-                  {
-                    \"name\": \"📦 Branch\",
-                    \"value\": \"${COMMIT_BRANCH}\",
-                    \"inline\": true
-                  },
-                  {
-                    \"name\": \"🕒 Hora\",
-                    \"value\": \"${DATA_HORA}\",
-                    \"inline\": true
-                  }
-                ],
                 \"footer\": {
-                  \"text\": \"Back-end turbinado com novidades ⚙️🚀\"
+                  \"text\": \"${DATA_HORA}\"
                 }
               }]
             }" \
