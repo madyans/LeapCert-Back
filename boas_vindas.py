@@ -20,7 +20,7 @@ def enviar_email(destinatario, assunto, corpo, smtp_server, smtp_porta, smtp_usu
     except Exception as e:
         print(f"Erro ao enviar e-mail para {destinatario}: {e}")
     finally:
-        if 'server' in locals() and server.is_connected():
+        if 'server' in locals() and server.noop()[0] == 250:
             server.quit()
 
 def verificar_novos_registros(db_server, db_name, db_user, db_password):
@@ -34,7 +34,11 @@ def verificar_novos_registros(db_server, db_name, db_user, db_password):
     try:
         cnxn = pyodbc.connect(conn_str)
         cursor = cnxn.cursor()
-        cursor.execute("SELECT id, email, nome FROM sua_tabela_de_usuarios WHERE email_boas_vindas_enviado = 0")
+        cursor.execute("""
+            SELECT ID_Usuario, Email, Nome 
+            FROM Usuarios 
+            WHERE email_boas_vindas_enviado = 0
+        """)
         novos_usuarios = cursor.fetchall()
         return novos_usuarios, cnxn
     except Exception as e:
@@ -44,7 +48,11 @@ def verificar_novos_registros(db_server, db_name, db_user, db_password):
 def marcar_email_enviado(usuario_id, cnxn):
     try:
         cursor = cnxn.cursor()
-        cursor.execute("UPDATE sua_tabela_de_usuarios SET email_boas_vindas_enviado = 1 WHERE id = ?", (usuario_id,))
+        cursor.execute("""
+            UPDATE Usuarios 
+            SET email_boas_vindas_enviado = 1 
+            WHERE ID_Usuario = ?
+        """, (usuario_id,))
         cnxn.commit()
     except Exception as e:
         print(f"Erro ao marcar email como enviado para o usuário {usuario_id}: {e}")
@@ -55,8 +63,8 @@ if __name__ == "__main__":
     db_user = os.environ.get("DB_USER")
     db_password = os.environ.get("DB_PASSWORD")
     smtp_server = os.environ.get("SMTP_SERVER")
-    smtp_porta = os.environ.get("SMTP_PORT")
-    smtp_user = os.environ.get("SMTP_USER")
+    smtp_porta = int(os.environ.get("SMTP_PORT", 587))
+    smtp_usuario = os.environ.get("SMTP_USER")
     smtp_senha = os.environ.get("SMTP_PASSWORD")
     email_from = os.environ.get("EMAIL_FROM")
 
