@@ -2,8 +2,8 @@ name: Enviar Email de Boas Vindas
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Executa a cada hora (você pode ajustar a frequência)
-  workflow_dispatch: # Permite executar manualmente pela interface do GitHub Actions
+    - cron: '0 * * * *'  # Executa a cada hora 
+  workflow_dispatch: 
 
 jobs:
   enviar_emails:
@@ -34,4 +34,4 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-        run: python seu_script_de_envio.py
+        run: python boas_vindas.py
