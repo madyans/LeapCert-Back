@@ -25,7 +25,7 @@ def enviar_email(destinatario, assunto, corpo, smtp_server, smtp_porta, smtp_usu
 
 def verificar_novos_registros(db_server, db_name, db_user, db_password):
     conn_str = (
-        f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+        f'DRIVER=/opt/microsoft/msodbcsql17/lib64/libmsodbcsql-17.X.so;'
         f'SERVER={db_server};'
         f'DATABASE={db_name};'
         f'UID={db_user};'
