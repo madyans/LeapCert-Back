@@ -1,5 +1,5 @@
 import os
-import pymssql
+import pyodbc
 import smtplib
 from email.mime.text import MIMEText
 import time
@@ -20,20 +20,19 @@ def enviar_email(destinatario, assunto, corpo, smtp_server, smtp_porta, smtp_usu
     except Exception as e:
         print(f"Erro ao enviar e-mail para {destinatario}: {e}")
     finally:
-        if 'server' in locals():
-            try:
-                server.quit()
-            except Exception as e:
-                print(f"Erro ao finalizar o servidor de e-mail: {e}")
+        if 'server' in locals() and server.noop()[0] == 250:
+            server.quit()
 
 def verificar_novos_registros(db_server, db_name, db_user, db_password):
+    conn_str = (
+        f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+        f'SERVER={db_server};'
+        f'DATABASE={db_name};'
+        f'UID={db_user};'
+        f'PWD={db_password};'
+    )
     try:
-        cnxn = pymssql.connect(
-            server=db_server,
-            user=db_user,
-            password=db_password,
-            database=db_name
-        )
+        cnxn = pyodbc.connect(conn_str)
         cursor = cnxn.cursor()
         cursor.execute("""
             SELECT ID_Usuario, Email, Nome 
@@ -52,8 +51,8 @@ def marcar_email_enviado(usuario_id, cnxn):
         cursor.execute("""
             UPDATE Usuarios 
             SET email_boas_vindas_enviado = 1 
-            WHERE ID_Usuario = %d
-        """ % usuario_id) 
+            WHERE ID_Usuario = ?
+        """, (usuario_id,))
         cnxn.commit()
     except Exception as e:
         print(f"Erro ao marcar email como enviado para o usuário {usuario_id}: {e}")
