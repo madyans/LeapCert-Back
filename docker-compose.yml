@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  leapcert-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - BUILD_CONFIGURATION=Release
+    ports:
+      - "6030:8080"
+    networks:
+      - leapcert-network
+    restart: unless-stopped
+
+networks:
+  leapcert-network:
+    external: true

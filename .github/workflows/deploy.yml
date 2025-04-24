@@ -1,0 +1,49 @@
+name: Deploy Backend para Produção
+
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Instalar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publicar projeto .NET
+        run: dotnet publish -c Release -o out
+
+      - name: Copiar arquivos para o servidor via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          source: "."
+          target: "~/leapcert/LeapCert-Back"
+
+      - name: Rodar Docker Compose no servidor
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            cd ~/leapcert/LeapCert-Back
+            docker-compose down
+            docker-compose up -d --build
+
+      - name: Enviar notificação Discord
+        run: |
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d '{"content":"🚀 Nova versão do *LeapCert-Back* foi publicada em produção com sucesso!"}' \
+          ${{ secrets.DISCORD_WEBHOOK }}
