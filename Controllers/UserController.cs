@@ -1,6 +1,7 @@
 using System.ComponentModel.Design;
 using leapcert_back.Dtos.Users;
 using leapcert_back.Helpers;
+using leapcert_back.Interfaces;
 using leapcert_back.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,22 +16,29 @@ public class UserController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly ILogger<UserController> _logger;
     private readonly HelperService _helperService;
+    private readonly IUserRepository _userRepository;
     
-    public UserController(ApplicationDbContext context, ILogger<UserController> logger, HelperService helperService )
+    public UserController(
+        ApplicationDbContext context, 
+        ILogger<UserController> logger, 
+        HelperService helperService, 
+        IUserRepository userRepository 
+        )
     {
         _context = context;
         _logger = logger;
         _helperService = helperService;
+        _userRepository = userRepository;
     }
 
     [HttpGet("getAllUsers")]
     public async Task<IActionResult> GetAllUsers()
     {
-        var response = new Response<List<Usuario>>();
+        var response = new Response<List<User>>();
 
         try
         {
-            var users = await _context.Usuario.ToListAsync();
+            var users = await _userRepository.GetAllAsync();
 
             if (users == null || users.Count == 0)
             {
@@ -55,7 +63,7 @@ public class UserController : ControllerBase
     [HttpPost("addUser")]
     public async Task<IActionResult> AddUser([FromBody] CreateUserDto usuario)
     {
-        var response = new Response<Usuario>();
+        var response = new Response<User>();
 
         try
         {
@@ -69,7 +77,7 @@ public class UserController : ControllerBase
                 return StatusCode(409, response);
             }
             
-            var newUser = new Usuario
+            var newUser = new User
             {
                 nome = usuario.nome,
                 email = usuario.email,
@@ -77,6 +85,7 @@ public class UserController : ControllerBase
                 senha = _helperService.HashMd5(usuario.senha),
                 avaliacao = 0,
                 created_at = DateTime.Now,
+                email_boas_vindas_enviado = false,
                 perfil = usuario.perfil,
             };
 

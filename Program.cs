@@ -1,4 +1,6 @@
 using leapcert_back.Helpers;
+using leapcert_back.Interfaces;
+using leapcert_back.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using wsapi.Context;
@@ -28,10 +30,10 @@ if (string.IsNullOrEmpty(connectionString))
     throw new InvalidOperationException("A string de conexão não foi encontrada no appsettings.json.");
 }
 
-// Configuração do banco de dados MySQL
+// Configuração do banco de dados SQL server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
 // Configuração do Swagger
@@ -45,9 +47,9 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-var app = builder.Build();
-
 builder.Services.AddScoped<HelperService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+var app = builder.Build();
 
 // Middleware do Swagger
 app.UseSwagger();

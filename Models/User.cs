@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace leapcert_back.Models;
 
-public class Usuario
+public class User
 {
     [Key]
     public int codigo { get; set; }
@@ -12,5 +12,6 @@ public class Usuario
     public string senha { get; set; }
     public Decimal avaliacao { get; set; }
     public DateTime created_at { get; set; }
+    public bool email_boas_vindas_enviado { get; set; }
     public int perfil { get; set; }
 }
