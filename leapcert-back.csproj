@@ -27,8 +27,4 @@
     <Content Include=".github\workflows\discord.yml" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Mappers\" />
-  </ItemGroup>
-
 </Project>

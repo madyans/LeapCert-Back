@@ -5,7 +5,7 @@ namespace leapcert_back.Helpers;
 
 public class HelperService
 {
-    public string HashMd5(string text)
+    public static string HashMd5(string text)
     {
         using MD5 md5Hash = MD5.Create();
         byte[] data = md5Hash.ComputeHash(Encoding.UTF8.GetBytes(text));

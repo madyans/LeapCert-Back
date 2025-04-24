@@ -1,8 +1,10 @@
+using leapcert_back.Dtos.Users;
 using leapcert_back.Models;
 
 namespace leapcert_back.Interfaces;
 
 public interface IUserRepository
 {
-    Task<List<User>> GetAllAsync();
+    Task<IResponses> GetAllAsync();
+    Task<IResponses> PostAsync(CreateUserDto user);
 }

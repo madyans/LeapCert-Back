@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - BUILD_CONFIGURATION=Release
+        - BUILD_CONFIGURATION=Production
     ports:
       - "6030:8080"
     networks:

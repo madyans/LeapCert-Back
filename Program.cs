@@ -1,6 +1,8 @@
 using leapcert_back.Helpers;
 using leapcert_back.Interfaces;
+using leapcert_back.Mappers;
 using leapcert_back.Repository;
+using leapcert_back.Responses;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using wsapi.Context;
@@ -49,6 +51,7 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddScoped<HelperService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<UserMapper>();
 var app = builder.Build();
 
 // Middleware do Swagger
