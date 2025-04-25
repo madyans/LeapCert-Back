@@ -73,7 +73,7 @@ if __name__ == "__main__":
     if conexao:
         for usuario in novos_registros:
             usuario_id, email, nome = usuario
-            assunto = "Bem-vindo(a) à nossa plataforma!"
+            assunto = "Bem-vindo(a) LeapCert!"
             corpo = f"""
             <html>
             <body>
