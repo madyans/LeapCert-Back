@@ -7,21 +7,28 @@ import time
 def enviar_email(destinatario, assunto, corpo, smtp_server, smtp_porta, smtp_usuario, smtp_senha, email_from):
     try:
         server = smtplib.SMTP(smtp_server, smtp_porta)
+        server.set_debuglevel(1)  # Ativa log SMTP
         server.starttls()
         server.login(smtp_usuario, smtp_senha)
 
         msg = MIMEText(corpo, 'html')
         msg['Subject'] = assunto
-        msg['From'] = email_from
+        msg['From'] = f"Suporte LeapCert <{email_from}>"
         msg['To'] = destinatario
+        msg['Reply-To'] = email_from
+        msg.add_header('Return-Path', email_from)
 
         server.sendmail(email_from, [destinatario], msg.as_string())
         print(f"E-mail enviado para {destinatario}")
     except Exception as e:
         print(f"Erro ao enviar e-mail para {destinatario}: {e}")
     finally:
-        if 'server' in locals() and server.noop()[0] == 250:
-            server.quit()
+        if 'server' in locals():
+            try:
+                if server.noop()[0] == 250:
+                    server.quit()
+            except:
+                pass
 
 def verificar_novos_registros(db_server, db_name, db_user, db_password):
     conn_str = (
@@ -75,16 +82,26 @@ if __name__ == "__main__":
             usuario_id, email, nome = usuario
             assunto = "Bem-vindo(a) LeapCert!"
             corpo = f"""
+            <!DOCTYPE html>
             <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Bem-vindo(a)</title>
+            </head>
             <body>
                 <p>Olá, {nome}!</p>
                 <p>Seja muito bem-vindo(a) ao LeapCert.</p>
                 <p>Aproveite ao máximo todos os recursos que temos a oferecer!</p>
-                <p>Atenciosamente,</p>
-                <p>Equipe LeapCert</p>
+                <p>Atenciosamente,<br>Equipe LeapCert</p>
+                <p style="font-size:small;color:gray;">
+                    Este é um e-mail automático enviado para {email}.<br>
+                    Caso não reconheça este cadastro, apenas ignore esta mensagem.<br>
+                    Dúvidas? Entre em contato pelo e-mail suporte@leapcert.com.
+                </p>
             </body>
             </html>
             """
             enviar_email(email, assunto, corpo, smtp_server, smtp_porta, smtp_usuario, smtp_senha, email_from)
             marcar_email_enviado(usuario_id, conexao)
+            time.sleep(2)  # espaçamento entre envios
         conexao.close()
