@@ -35,7 +35,7 @@ def verificar_novos_registros(db_server, db_name, db_user, db_password):
         cnxn = pyodbc.connect(conn_str)
         cursor = cnxn.cursor()
         cursor.execute("""
-            SELECT ID_Usuario, email, nome 
+            SELECT codigo, email, nome 
             FROM Usuario 
             WHERE email_boas_vindas_enviado = 0
         """)
