@@ -49,9 +49,9 @@ def marcar_email_enviado(usuario_id, cnxn):
     try:
         cursor = cnxn.cursor()
         cursor.execute("""
-            UPDATE Usuarios 
+            UPDATE Usuario 
             SET email_boas_vindas_enviado = 1 
-            WHERE ID_Usuario = ?
+            WHERE codigo = ?
         """, (usuario_id,))
         cnxn.commit()
     except Exception as e:
