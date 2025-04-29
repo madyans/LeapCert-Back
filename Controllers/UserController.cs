@@ -46,6 +46,16 @@ public class UserController : ControllerBase
                 
         return Ok(result);
     }
+
+    [HttpGet("validateToken")]
+    public IActionResult ValidateToken([FromQuery] string token)
+    {
+        var result = _userRepository.ValidateToken(token);
+        
+        if(result.Flag == false) ResponseHelper.HandleError(this, result);
+        
+        return Ok(result);
+    }
     
     [Authorize]
     [HttpGet("getAllUsers")]

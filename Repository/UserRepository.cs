@@ -76,6 +76,18 @@ public class UserRepository : IUserRepository
         
         return new SuccessResponse<ReadUserSessionDTO>(true, 200, "Usuário logado com sucesso!", loggedUser);
     }
+
+    public IResponses ValidateToken(string token)
+    {
+        bool validationToken = _jwtService.ValidateToken(token);
+
+        if (validationToken == false)
+        {
+            return new ErrorResponse(false, 400, "Token inválido");
+        }
+        
+        return new SuccessResponse(true, 200, "Token validado com sucesso");
+    }
     
     public void SetTokensInsideCookie(string token, HttpContext context)
     {

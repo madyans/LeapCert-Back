@@ -15,6 +15,36 @@ public class JwtService
         _configuration = configuration;
     }
 
+    private TokenValidationParameters GetValidationParameters()
+    {
+        return new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey =
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"])),
+            ValidateAudience = false,
+            ValidateIssuer = false,
+            ClockSkew = TimeSpan.Zero,
+            ValidateLifetime = true
+        };
+    }
+    
+    public bool ValidateToken(string token)
+    {
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var validationParameters = GetValidationParameters();
+
+        try
+        {
+            tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            return false;
+        }
+    }
+    
     public ReadUserSessionDTO GenerateJwtToken(CreateUserSessionDTO user)
     {
         var identity = new ClaimsIdentity(new[]
