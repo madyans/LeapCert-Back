@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using static leapcert_back.Responses.ResponseFactory;
 using Microsoft.EntityFrameworkCore;
 using wsapi.Context;
+using leapcert_back.Extensions;
 
 namespace leapcert_back.Repository;
 
@@ -93,11 +94,12 @@ public class UserRepository : IUserRepository
     {
         context.Response.Cookies.Append("accessToken", token, new CookieOptions
         {
-            Expires = DateTime.Now.AddHours(5),
+            Expires = DateTime.Now.NowInBrasilia().AddHours(5),
             HttpOnly = true,
             IsEssential = true,
             Secure = true,
-            SameSite = SameSiteMode.None
+            SameSite = SameSiteMode.None,
+            Path = "/"
         });
     }
 }
