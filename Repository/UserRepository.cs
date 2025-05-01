@@ -99,7 +99,8 @@ public class UserRepository : IUserRepository
             IsEssential = true,
             Secure = true,
             SameSite = SameSiteMode.None,
-            Path = "/"
+            Path = "/",
+            Domain = ".leapcert.com.br"
         });
     }
 }
