@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using leapcert_back.Dtos.Users;
 using Microsoft.IdentityModel.Tokens;
+using leapcert_back.Extensions;
 
 namespace leapcert_back.Helpers;
 
@@ -61,7 +62,7 @@ public class JwtService
         var token = new JwtSecurityToken(
             issuer: _configuration["Jwt:Issuer"],
             audience: _configuration["Jwt:Audience"],
-            expires: DateTime.UtcNow.AddHours(5),
+            expires:  DateTime.Now.NowInBrasilia().AddHours(5),
             claims: identity.Claims,
             signingCredentials: signInCredentials
         );
