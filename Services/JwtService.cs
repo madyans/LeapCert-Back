@@ -73,7 +73,7 @@ public class JwtService
             user.codigo,
             user.usuario,
             user.nome,
-            DateTime.UtcNow.ToString(),
+            DateTime.Now.NowInBrasilia().ToString(),
             tokenString
         );
     }
