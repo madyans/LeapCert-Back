@@ -31,4 +31,18 @@ public class ClassRepository: IClassRepository
         
         return new SuccessResponse<IEnumerable>(true, 200, "Cursos encontrados", mappedClasses);
     }
+
+    public async Task<IResponses> GetByIdAsync(int id)
+    {
+        Class? course = await _context.tb_curso
+            .Include(course => course.GenderJoin)
+            .FirstOrDefaultAsync(course => course.codigo == id);
+
+        if (course == null)
+            return new ErrorResponse(false, 400, "Nenhum curso encontrado nesse id");
+        
+        var mappedClass = course.ToReadClassDto();
+        
+        return new SuccessResponse<ReadClassDto>(true, 200, "Curso encontrado", mappedClass);
+    }
 }

@@ -26,4 +26,15 @@ public class ClassController: ControllerBase
         
         return Ok(result);
     }
+
+    [Authorize]
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetClass(int id)
+    {
+        var result = await _classRepository.GetByIdAsync(id);
+        
+        if (result.Flag == false) ResponseHelper.HandleError(this, result);
+        
+        return Ok(result);
+    }
 }
