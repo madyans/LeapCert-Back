@@ -1,4 +1,5 @@
 using System.Text;
+using leapcert_back.Context;
 using leapcert_back.Helpers;
 using leapcert_back.Interfaces;
 using leapcert_back.Mappers;
@@ -9,7 +10,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using wsapi.Context;
+using leapcert_back.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -114,6 +115,7 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IModulesRepository, ModulesRepository>();
+builder.Services.AddScoped<IClassRepository, ClassRepository>();
 builder.Services.AddScoped<HelperService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<UserMapper>();

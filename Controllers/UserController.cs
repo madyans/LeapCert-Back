@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using static leapcert_back.Responses.ResponseFactory;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using wsapi.Context;
+using leapcert_back.Context;
 
 namespace leapcert_back.Controllers;
 

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using static leapcert_back.Responses.ResponseFactory;
 using Microsoft.EntityFrameworkCore;
-using wsapi.Context;
+using leapcert_back.Context;
 using leapcert_back.Extensions;
 
 namespace leapcert_back.Repository;

@@ -2,7 +2,7 @@ using leapcert_back.Interfaces;
 using leapcert_back.Models;
 using leapcert_back.Responses;
 using Microsoft.EntityFrameworkCore;
-using wsapi.Context;
+using leapcert_back.Context;
 using static leapcert_back.Responses.ResponseFactory;
 
 namespace leapcert_back.Repository;
@@ -18,7 +18,9 @@ public class ModulesRepository : IModulesRepository
 
     public async Task<IResponses> GetAllAsync()
     {
-        ICollection<Modules> modules = await _context.tb_modulos.ToListAsync();
+        ICollection<Modules> modules = await _context.tb_modulos
+            .OrderBy(module => module.ordem)
+            .ToListAsync();
 
         if (modules.Count == 0)
             return new ErrorResponse(false, 400, "Nenhum módulo encontrado");

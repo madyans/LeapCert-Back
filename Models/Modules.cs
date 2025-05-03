@@ -11,4 +11,5 @@ public class Modules
     public string icone { get; set; }
     public bool hasChildren { get; set; }
     public int? childoff { get; set; }
+    public int? ordem { get; set; }
 }

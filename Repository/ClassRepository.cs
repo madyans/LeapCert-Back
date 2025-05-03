@@ -1,0 +1,34 @@
+using System.Collections;
+using leapcert_back.Interfaces;
+using leapcert_back.Models;
+using Microsoft.EntityFrameworkCore;
+using leapcert_back.Context;
+using leapcert_back.Dtos.Class;
+using leapcert_back.Mappers;
+using static leapcert_back.Responses.ResponseFactory;
+
+namespace leapcert_back.Repository;
+
+public class ClassRepository: IClassRepository
+{
+    private readonly ApplicationDbContext _context;
+
+    public ClassRepository(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<IResponses> GetAllAsync()
+    {
+        ICollection<Class> classes = await _context.tb_curso
+            .Include(course => course.GenderJoin)
+            .ToListAsync();
+
+        if (classes.Count == 0)
+            return new ErrorResponse(false, 400, "Nenhum curso encontrado");
+
+        var mappedClasses = classes.Select(c => c.ToReadClassDto());
+        
+        return new SuccessResponse<IEnumerable>(true, 200, "Cursos encontrados", mappedClasses);
+    }
+}
