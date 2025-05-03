@@ -16,25 +16,13 @@ namespace leapcert_back.Controllers;
 [ApiController]
 public class UserController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
-    private readonly ILogger<UserController> _logger;
-    private readonly HelperService _helperService;
     private readonly IUserRepository _userRepository;
-    private readonly JwtService _jwtService;
     
     public UserController(
-        ApplicationDbContext context, 
-        ILogger<UserController> logger, 
-        HelperService helperService, 
-        IUserRepository userRepository ,
-        JwtService jwtService
+        IUserRepository userRepository
         )
     {
-        _context = context;
-        _logger = logger;
-        _helperService = helperService;
         _userRepository = userRepository;
-        _jwtService = jwtService;
     }
 
     [HttpPost("authenticate")]

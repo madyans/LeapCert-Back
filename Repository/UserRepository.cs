@@ -17,12 +17,14 @@ public class UserRepository : IUserRepository
     private readonly ApplicationDbContext _context;
     private readonly UserMapper _mapperUser;
     private readonly JwtService _jwtService;
+    private readonly IConfiguration _configuration;
     
-    public UserRepository(ApplicationDbContext context, UserMapper mapperUser, JwtService jwtService)
+    public UserRepository(ApplicationDbContext context, UserMapper mapperUser, JwtService jwtService, IConfiguration configuration)
     {
         _context = context;
         _mapperUser = mapperUser;
         _jwtService = jwtService;
+        _configuration = configuration;
     }
     
     public async Task<IResponses> GetAllAsync()
@@ -100,7 +102,7 @@ public class UserRepository : IUserRepository
             Secure = true,
             SameSite = SameSiteMode.None,
             Path = "/",
-            Domain = ".leapcert.com.br"
+            Domain = _configuration["Jwt:Domain"]
         });
     }
-}
+} 
