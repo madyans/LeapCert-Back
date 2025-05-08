@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using leapcert_back.Context;
+using Minio;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -113,9 +114,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddMinio(configureClient => configureClient
+    .WithEndpoint(builder.Configuration["MinIO:EndPoint"])
+    .WithCredentials(builder.Configuration["MinIO:AccessKey"], builder.Configuration["MinIO:SecretKey"])
+    .WithSSL(true)
+    .Build());
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IModulesRepository, ModulesRepository>();
 builder.Services.AddScoped<IClassRepository, ClassRepository>();
+builder.Services.AddScoped<IMinIoRepository, MinIoRepository>();
 builder.Services.AddScoped<HelperService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<UserMapper>();
