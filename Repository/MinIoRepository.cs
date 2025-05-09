@@ -12,26 +12,64 @@ namespace leapcert_back.Repository;
 public class MinIoRepository : IMinIoRepository
 {
     private readonly IMinioClient minioClient;
+    private readonly IConfiguration _configuration;
 
-    public MinIoRepository(IMinioClient minioClient)
+    public MinIoRepository(IMinioClient minioClient, IConfiguration configuration)
     {
         this.minioClient = minioClient;
+        _configuration = configuration;
     }
 
-    public async Task<IResponses> GetObject([FromQuery] GetObjectDto bucketInfo)
+    public async Task<IResponses> GetObject([FromQuery] GetObjectDto dto)
     {
-        if (string.IsNullOrEmpty(bucketInfo.bucketId) || bucketInfo.bucketId.Length < 3) 
+        if (string.IsNullOrEmpty(dto.bucketId) || dto.bucketId.Length < 3)
             return new ErrorResponse(false, 404, "Bucket ID não encontrado ou Bucket ID inválido.");
 
-        if (string.IsNullOrEmpty(bucketInfo.objectName))
+        if (string.IsNullOrEmpty(dto.objectName))
             return new ErrorResponse(false, 400, "Objeto não informado.");
 
         var args = new PresignedGetObjectArgs()
-            .WithBucket(bucketInfo.bucketId)
-            .WithObject(bucketInfo.objectName)
+            .WithBucket(dto.bucketId)
+            .WithObject(dto.objectName)
             .WithExpiry(60 * 60);
 
         var url = minioClient.PresignedGetObjectAsync(args);
         return new SuccessResponse<Task<string>>(true, 200, "Objeto encontrado com sucesso", url);
+    }
+
+    public async Task<IResponses> GetBucketItems([FromQuery] ListObjectsAsDto dto)
+    {
+        var listArgs = new ListObjectsArgs()
+                .WithBucket(dto.bucketName)
+                .WithPrefix(dto.prefix)
+                .WithRecursive(dto.recursive)
+                .WithVersions(dto.versions);
+
+        List<string> list = new List<string>();
+
+        await foreach (var item in minioClient.ListObjectsEnumAsync(listArgs))
+        {
+            if (!item.IsDir)
+            {
+                var key = item.Key;
+                if (!string.IsNullOrEmpty(dto.prefix) && key.StartsWith(dto.prefix))
+                    key = key.Substring(dto.prefix.Length).TrimStart('/');
+
+                list.Add(key);
+            }
+        }
+
+        return new SuccessResponse<List<string>>(true, 200, "Todos objetos retornados com sucesso", list);
+    }
+
+    public async Task<IResponses> CreateFolder(string path, string folderName)
+    {
+        var args = new PutObjectArgs()
+        .WithBucket(_configuration["MinIO:Bucket"])
+        .WithObject(path + folderName + "/")
+        .WithFileName("n.txt");
+
+        var name = await minioClient.PutObjectAsync(args).ConfigureAwait(false);
+        return new SuccessResponse<Minio.DataModel.Response.PutObjectResponse>(true, 200, "Pasta criada com sucesso", name);
     }
 }
