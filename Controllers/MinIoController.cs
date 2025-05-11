@@ -49,4 +49,16 @@ public class MinIoController : ControllerBase
 
         return Ok(result);
     }
+
+    [Authorize]
+    [Consumes("multipart/form-data")]
+    [HttpPost("sendObject")]
+    public async Task<IActionResult> UploadFile([FromForm] UploadFileDto dto)
+    {
+        var result = await _minioRepository.PutObject(dto);
+
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
+
+        return Ok(result);
+    }
 }

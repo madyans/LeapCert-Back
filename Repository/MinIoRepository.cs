@@ -1,10 +1,13 @@
+using CommunityToolkit.HighPerformance;
 using leapcert_back.Dtos.MinIo;
 using leapcert_back.Interfaces;
 using leapcert_back.Responses;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Minio;
+using Minio.DataModel;
 using Minio.DataModel.Args;
+using Minio.DataModel.Encryption;
 using static leapcert_back.Responses.ResponseFactory;
 
 namespace leapcert_back.Repository;
@@ -71,5 +74,28 @@ public class MinIoRepository : IMinIoRepository
 
         var name = await minioClient.PutObjectAsync(args).ConfigureAwait(false);
         return new SuccessResponse<Minio.DataModel.Response.PutObjectResponse>(true, 200, "Pasta criada com sucesso", name);
+    }
+
+    public async Task<IResponses> PutObject(UploadFileDto dto)
+    {
+        if (dto.File == null || dto.File.Length == 0)
+            return new ErrorResponse(false, 400, "Arquivo inválido.");
+
+        var path = $"{dto.path}/{dto.File.FileName}";
+        var bucket = _configuration["MinIO:Bucket"];
+
+        using var stream = dto.File.OpenReadStream();
+
+        var args = new PutObjectArgs()
+            .WithBucket(bucket)
+            .WithObject(path)
+            .WithStreamData(stream)
+            .WithObjectSize(dto.File.Length)
+            .WithContentType(dto.File.ContentType);
+
+        var result = await minioClient.PutObjectAsync(args);
+
+        return new SuccessResponse<Minio.DataModel.Response.PutObjectResponse>(
+            true, 200, "Arquivo enviado com sucesso", result);
     }
 }
