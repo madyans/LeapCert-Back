@@ -1,6 +1,7 @@
 using leapcert_back.Models;
 using Microsoft.EntityFrameworkCore;
 using leapcert_back.Models;
+using Microsoft.EntityFrameworkCore.Internal;
 
 namespace leapcert_back.Context;
 
@@ -16,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Class> tb_curso { get; set; }
     public DbSet<Gender> tb_genero { get; set; }
     public DbSet<UserClass> tb_usuario_curso { get; set; }
+    public DbSet<ClassPath> tb_curso_path { get; set; }
 
     //JOINS: 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -25,6 +27,12 @@ public class ApplicationDbContext : DbContext
             .HasOne(cl => cl.GenderJoin)
             .WithMany(g => g.ClassJoin)
             .HasForeignKey(cl => cl.genero)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Class>()
+            .HasOne(cl => cl.PathJoin)
+            .WithMany()
+            .HasForeignKey(cl => cl.codigo)
             .OnDelete(DeleteBehavior.Cascade);
 
         // joins usuario_curso:

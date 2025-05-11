@@ -14,4 +14,5 @@ public class Class
 
     // joins
     public Gender GenderJoin { get; set; }
+    public ClassPath PathJoin { get; set; }
 }

@@ -95,7 +95,6 @@ public class MinIoRepository : IMinIoRepository
 
         var result = await minioClient.PutObjectAsync(args);
 
-        return new SuccessResponse<Minio.DataModel.Response.PutObjectResponse>(
-            true, 200, "Arquivo enviado com sucesso", result);
+        return new SuccessResponse<Minio.DataModel.Response.PutObjectResponse>(true, 200, "Arquivo enviado com sucesso", result);
     }
 }
