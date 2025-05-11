@@ -11,7 +11,7 @@ public class Class
     public DateTime created_at { get; set; }
     public string nome { get; set; }
     public int? genero { get; set; }
-    
+
     // joins
     public Gender GenderJoin { get; set; }
 }

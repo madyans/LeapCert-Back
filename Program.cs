@@ -123,6 +123,7 @@ builder.Services.AddMinio(configureClient => configureClient
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IModulesRepository, ModulesRepository>();
 builder.Services.AddScoped<IClassRepository, ClassRepository>();
+builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();
 builder.Services.AddScoped<IMinIoRepository, MinIoRepository>();
 builder.Services.AddScoped<HelperService>();
 builder.Services.AddScoped<JwtService>();

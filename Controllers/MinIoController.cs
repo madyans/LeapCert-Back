@@ -23,7 +23,7 @@ public class MinIoController : ControllerBase
     {
         var result = await _minioRepository.GetObject(bucketInfo);
 
-        if (result == null) return ResponseHelper.HandleError(this, result);
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
         return Ok(result);
     }
@@ -34,7 +34,7 @@ public class MinIoController : ControllerBase
     {
         var result = await _minioRepository.GetBucketItems(infos);
 
-        if (result == null) return ResponseHelper.HandleError(this, result);
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
         return Ok(result);
     }
@@ -45,7 +45,7 @@ public class MinIoController : ControllerBase
     {
         var result = await _minioRepository.CreateFolder(path, folderName);
 
-        if (result == null) return ResponseHelper.HandleError(this, result);
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
         return Ok(result);
     }

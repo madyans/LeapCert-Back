@@ -7,7 +7,7 @@ namespace leapcert_back.Controllers;
 
 [Route("api/class")]
 [ApiController]
-public class ClassController: ControllerBase
+public class ClassController : ControllerBase
 {
     private readonly IClassRepository _classRepository;
 
@@ -22,8 +22,8 @@ public class ClassController: ControllerBase
     {
         var result = await _classRepository.GetAllAsync();
 
-        if (result.Flag == false) ResponseHelper.HandleError(this, result);
-        
+        if (!result.Flag) ResponseHelper.HandleError(this, result);
+
         return Ok(result);
     }
 
@@ -32,9 +32,20 @@ public class ClassController: ControllerBase
     public async Task<IActionResult> GetClass(int id)
     {
         var result = await _classRepository.GetByIdAsync(id);
-        
-        if (result.Flag == false) ResponseHelper.HandleError(this, result);
-        
+
+        if (!result.Flag) ResponseHelper.HandleError(this, result);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpGet("getTeacherClass/{id}")]
+    public async Task<IActionResult> GetTeacherByClass(int id)
+    {
+        var result = await _classRepository.GetTeacherByClass(id);
+
+        if (!result.Flag) ResponseHelper.HandleError(this, result);
+
         return Ok(result);
     }
 }

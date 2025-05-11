@@ -17,7 +17,7 @@ namespace leapcert_back.Controllers;
 public class UserController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
-    
+
     public UserController(
         IUserRepository userRepository
         )
@@ -29,9 +29,9 @@ public class UserController : ControllerBase
     public async Task<IActionResult> AuthUser([FromBody] LoginUserDto user)
     {
         var result = await _userRepository.Authenticate(user, HttpContext);
-        
-        if (result.Flag == false) ResponseHelper.HandleError(this, result);
-                
+
+        if (!result.Flag) ResponseHelper.HandleError(this, result);
+
         return Ok(result);
     }
 
@@ -39,30 +39,30 @@ public class UserController : ControllerBase
     public IActionResult ValidateToken([FromQuery] string token)
     {
         var result = _userRepository.ValidateToken(token);
-        
-        if(result.Flag == false) ResponseHelper.HandleError(this, result);
-        
+
+        if (!result.Flag) ResponseHelper.HandleError(this, result);
+
         return Ok(result);
     }
-    
+
     [Authorize]
     [HttpGet("getAllUsers")]
     public async Task<IActionResult> GetAllUsers()
     {
         var result = await _userRepository.GetAllAsync();
 
-        if (result.Flag == false) ResponseHelper.HandleError(this, result);
-                
+        if (!result.Flag) ResponseHelper.HandleError(this, result);
+
         return Ok(result);
     }
-    
+
     [HttpPost("addUser")]
     public async Task<IActionResult> AddUser([FromBody] CreateUserDto usuario)
     {
         var result = await _userRepository.PostAsync(usuario);
-        
-        if (result.Flag == false) ResponseHelper.HandleError(this, result);
-        
+
+        if (!result.Flag) ResponseHelper.HandleError(this, result);
+
         return Ok(result);
     }
 }

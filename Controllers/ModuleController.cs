@@ -24,7 +24,7 @@ public class ModuleController : ControllerBase
     {
         var result = await _moduleRepository.GetAllAsync();
 
-        if (result.Flag == false) ResponseHelper.HandleError(this, result);
+        if (!result.Flag) ResponseHelper.HandleError(this, result);
 
         return Ok(result);
     }
