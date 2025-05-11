@@ -30,4 +30,25 @@ public static class ClassMapper
             nome_professor = dto.UserJoin.nome
         };
     }
+
+    public static ReadAllClassesDto ToReadAllClassesDto(this UserClass dto)
+    {
+        return new ReadAllClassesDto()
+        {
+            codigo_curso = dto.codigo_curso,
+            nome_curso = dto.ClassJoin.nome,
+        };
+    }
+
+    public static Class ToCreateClassDto(this CreateClassDto dto)
+    {
+        return new Class()
+        {
+            descricao = dto.descricao,
+            avaliacao = null,
+            created_at = DateTime.UtcNow,
+            nome = dto.nome,
+            genero = dto.genero
+        };
+    }
 }
