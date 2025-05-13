@@ -40,7 +40,7 @@ public class MinIoRepository : IMinIoRepository
         return new SuccessResponse<Task<string>>(true, 200, "Objeto encontrado com sucesso", url);
     }
 
-    public async Task<IResponses> GetBucketItems([FromQuery] ListObjectsAsDto dto)
+    public async Task<IResponses> GetBucketItems([FromQuery] ListObjectsAsDto dto) // para consultar os objetos dentro de uma pasta => folderName/
     {
         var listArgs = new ListObjectsArgs()
                 .WithBucket(dto.bucketName)

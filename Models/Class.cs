@@ -1,10 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace leapcert_back.Models;
 
 public class Class
 {
     [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int codigo { get; set; }
     public string descricao { get; set; }
     public string? avaliacao { get; set; }
