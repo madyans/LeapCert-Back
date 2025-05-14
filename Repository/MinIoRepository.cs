@@ -25,6 +25,8 @@ public class MinIoRepository : IMinIoRepository
 
     public async Task<IResponses> GetObject([FromQuery] GetObjectDto dto)
     {
+        var prefix = Uri.UnescapeDataString(dto.objectName);
+
         if (string.IsNullOrEmpty(dto.bucketId) || dto.bucketId.Length < 3)
             return new ErrorResponse(false, 404, "Bucket ID não encontrado ou Bucket ID inválido.");
 
@@ -33,7 +35,7 @@ public class MinIoRepository : IMinIoRepository
 
         var args = new PresignedGetObjectArgs()
             .WithBucket(dto.bucketId)
-            .WithObject(dto.objectName)
+            .WithObject(prefix)
             .WithExpiry(60 * 60);
 
         var url = minioClient.PresignedGetObjectAsync(args);
@@ -58,7 +60,8 @@ public class MinIoRepository : IMinIoRepository
                 if (!string.IsNullOrEmpty(dto.prefix) && key.StartsWith(dto.prefix))
                     key = key.Substring(dto.prefix.Length).TrimStart('/');
 
-                list.Add(key);
+                if (!string.IsNullOrEmpty(key))
+                    list.Add(key);
             }
         }
 

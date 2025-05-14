@@ -36,6 +36,7 @@ public class ClassRepository : IClassRepository
     {
         Class? course = await _context.tb_curso
             .Include(course => course.GenderJoin)
+            .Include(course => course.PathJoin)
             .FirstOrDefaultAsync(course => course.codigo == id);
 
         if (course == null)

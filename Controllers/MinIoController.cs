@@ -3,6 +3,7 @@ using leapcert_back.Helper;
 using leapcert_back.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using leapcert_back.Responses;
 
 namespace leapcert_back.Controllers;
 
@@ -18,7 +19,7 @@ public class MinIoController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet("/objects/getObject")]
+    [HttpGet("objects/getObject")]
     public async Task<IActionResult> GetUrl([FromQuery] GetObjectDto bucketInfo)
     {
         var result = await _minioRepository.GetObject(bucketInfo);
@@ -29,7 +30,7 @@ public class MinIoController : ControllerBase
     }
 
     [Authorize]
-    [HttpGet("/objects/getAllObjects")]
+    [HttpGet("objects/getAllObjects")]
     public async Task<IActionResult> ListBucketContents([FromQuery] ListObjectsAsDto infos)
     {
         var result = await _minioRepository.GetBucketItems(infos);
@@ -60,5 +61,35 @@ public class MinIoController : ControllerBase
         if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
         return Ok(result);
+    }
+
+    [Authorize]
+    [HttpGet("proxyImage")]
+    public async Task<IActionResult> ProxyImage([FromQuery] GetObjectDto bucketInfo)
+    {
+        var result = await _minioRepository.GetObject(bucketInfo);
+
+        if (result is not ResponseFactory.SuccessResponse<Task<string>> typedResult)
+            return ResponseHelper.HandleError(this, result);
+
+        var url = await typedResult.Data;
+
+        using var httpClient = new HttpClient();
+        var imageBytes = await httpClient.GetByteArrayAsync(url);
+
+        var contentType = GetContentType(bucketInfo.objectName);
+        return File(imageBytes, contentType);
+    }
+
+    private string GetContentType(string fileName)
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            _ => "application/octet-stream",
+        };
     }
 }

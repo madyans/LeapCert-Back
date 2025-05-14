@@ -9,4 +9,5 @@ public class ReadClassDto
     public string nome { get; set; }
     public int? codigo_genero { get; set; }
     public string genero { get; set; }
+    public string? path { get; set; }
 }

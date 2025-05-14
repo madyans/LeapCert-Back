@@ -31,8 +31,8 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<Class>()
             .HasOne(cl => cl.PathJoin)
-            .WithMany()
-            .HasForeignKey(cl => cl.codigo)
+            .WithOne()
+            .HasForeignKey<ClassPath>(cp => cp.codigo_curso)
             .OnDelete(DeleteBehavior.Cascade);
 
         // joins usuario_curso:

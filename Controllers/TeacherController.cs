@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace leapcert_back.Controllers
 {
+    [Route("api/teacher")]
+    [ApiController]
     public class TeacherController : ControllerBase
     {
         private ITeacherRepository _teacherRepository;

@@ -17,6 +17,7 @@ public static class ClassMapper
             created_at = dto.created_at,
             codigo_genero = dto.genero,
             genero = dto.GenderJoin.nome,
+            path = dto.PathJoin != null ? dto.PathJoin.path : null
         };
     }
 
