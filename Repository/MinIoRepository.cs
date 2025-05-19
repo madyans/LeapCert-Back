@@ -27,14 +27,11 @@ public class MinIoRepository : IMinIoRepository
     {
         var prefix = Uri.UnescapeDataString(dto.objectName);
 
-        if (string.IsNullOrEmpty(dto.bucketId) || dto.bucketId.Length < 3)
-            return new ErrorResponse(false, 404, "Bucket ID não encontrado ou Bucket ID inválido.");
-
         if (string.IsNullOrEmpty(dto.objectName))
             return new ErrorResponse(false, 400, "Objeto não informado.");
 
         var args = new PresignedGetObjectArgs()
-            .WithBucket(dto.bucketId)
+            .WithBucket(_configuration["MinIO:Bucket"])
             .WithObject(prefix)
             .WithExpiry(60 * 60);
 
@@ -45,12 +42,12 @@ public class MinIoRepository : IMinIoRepository
     public async Task<IResponses> GetBucketItems([FromQuery] ListObjectsAsDto dto) // para consultar os objetos dentro de uma pasta => folderName/
     {
         var listArgs = new ListObjectsArgs()
-                .WithBucket(dto.bucketName)
+                .WithBucket(_configuration["MinIO:Bucket"])
                 .WithPrefix(dto.prefix)
                 .WithRecursive(dto.recursive)
                 .WithVersions(dto.versions);
 
-        List<string> list = new List<string>();
+        List<BucketItemDto> list = new List<BucketItemDto>();
 
         await foreach (var item in minioClient.ListObjectsEnumAsync(listArgs))
         {
@@ -61,11 +58,24 @@ public class MinIoRepository : IMinIoRepository
                     key = key.Substring(dto.prefix.Length).TrimStart('/');
 
                 if (!string.IsNullOrEmpty(key))
-                    list.Add(key);
+                {
+                    StatObjectArgs statObjectArgs = new StatObjectArgs()
+                        .WithBucket(_configuration["MinIO:Bucket"])
+                        .WithObject(dto.prefix + key);
+
+                    ObjectStat objectStat = await minioClient.StatObjectAsync(statObjectArgs);
+                    var newObject = new BucketItemDto()
+                    {
+                        ObjectName = key,
+                        eTag = objectStat.ETag,
+                        contentType = objectStat.ContentType
+                    };
+                    list.Add(newObject);
+                }
             }
         }
 
-        return new SuccessResponse<List<string>>(true, 200, "Todos objetos retornados com sucesso", list);
+        return new SuccessResponse<List<BucketItemDto>>(true, 200, "Todos objetos retornados com sucesso", list);
     }
 
     public async Task<IResponses> CreateFolder(string path, string folderName)
