@@ -9,6 +9,7 @@ services:
         - BUILD_CONFIGURATION=Production
     ports:
       - "6030:8080"
+    restart: always
     networks:
       - leapcert-network
     restart: unless-stopped
