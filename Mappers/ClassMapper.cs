@@ -6,18 +6,19 @@ namespace leapcert_back.Mappers;
 
 public static class ClassMapper
 {
-    public static ReadClassDto ToReadClassDto(this Class dto)
+    public static ReadClassDto ToReadClassDto(this UserClass dto)
     {
         return new ReadClassDto()
         {
-            codigo = dto.codigo,
-            nome = dto.nome,
-            descricao = dto.descricao,
-            avaliacao = dto.avaliacao ?? "0.0",
-            created_at = dto.created_at,
-            codigo_genero = dto.genero,
-            genero = dto.GenderJoin.nome,
-            path = dto.PathJoin != null ? dto.PathJoin.path : null
+            codigo = dto.ClassJoin.codigo,
+            codigo_professor = dto.codigo_usuario,
+            nome = dto.ClassJoin.nome,
+            descricao = dto.ClassJoin.descricao,
+            avaliacao = dto.ClassJoin.avaliacao ?? "0.0",
+            created_at = dto.ClassJoin.created_at,
+            codigo_genero = dto.ClassJoin.genero,
+            genero = dto.ClassJoin.GenderJoin.nome,
+            path = dto.ClassJoin.PathJoin != null ? dto.ClassJoin.PathJoin.path : null
         };
     }
 

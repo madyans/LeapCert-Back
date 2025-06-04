@@ -3,6 +3,7 @@ namespace leapcert_back.Dtos.Class;
 public class ReadClassDto
 {
     public int codigo { get; set; }
+    public int codigo_professor { get; set; }
     public string descricao { get; set; }
     public string? avaliacao { get; set; }
     public DateTime created_at { get; set; }

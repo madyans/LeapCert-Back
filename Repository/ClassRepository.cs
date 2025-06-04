@@ -20,8 +20,9 @@ public class ClassRepository : IClassRepository
 
     public async Task<IResponses> GetAllAsync()
     {
-        ICollection<Class> classes = await _context.tb_curso
-            .Include(course => course.GenderJoin)
+        ICollection<UserClass> classes = await _context.tb_usuario_curso
+            .Include(uc => uc.ClassJoin)
+                .ThenInclude(course => course.GenderJoin)
             .ToListAsync();
 
         if (classes.Count == 0)
@@ -34,10 +35,12 @@ public class ClassRepository : IClassRepository
 
     public async Task<IResponses> GetByIdAsync(int id)
     {
-        Class? course = await _context.tb_curso
-            .Include(course => course.GenderJoin)
-            .Include(course => course.PathJoin)
-            .FirstOrDefaultAsync(course => course.codigo == id);
+        var course = await _context.tb_usuario_curso
+            .Include(uc => uc.ClassJoin)
+                .ThenInclude(c => c.GenderJoin)
+            .Include(uc => uc.ClassJoin)
+                .ThenInclude(c => c.PathJoin)
+            .FirstOrDefaultAsync(course => course.codigo_curso == id);
 
         if (course == null)
             return new ErrorResponse(false, 400, "Nenhum curso encontrado nesse id");

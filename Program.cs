@@ -125,6 +125,7 @@ builder.Services.AddScoped<IModulesRepository, ModulesRepository>();
 builder.Services.AddScoped<IClassRepository, ClassRepository>();
 builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();
 builder.Services.AddScoped<IMinIoRepository, MinIoRepository>();
+builder.Services.AddScoped<IGeneralRespository, GeneralRepository>();
 builder.Services.AddScoped<HelperService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<UserMapper>();
