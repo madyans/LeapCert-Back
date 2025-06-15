@@ -66,7 +66,7 @@ namespace leapcert_back.Repository
                 ClassPath newClassPath = new ClassPath()
                 {
                     codigo_curso = classMapped.codigo,
-                    path = "/" + dto.nome,
+                    path = dto.nome + "/",
                 };
 
                 await _minioRepository.CreateFolder("/", dto.nome);
