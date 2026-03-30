@@ -20,7 +20,16 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", corsBuilder =>
     {
-        corsBuilder.WithOrigins(builder.Configuration["CORS:AllowedOrigins"]);
+        var allowedOrigins = builder.Configuration
+            .GetSection("CORS:AllowedOrigins")
+            .Get<string[]>();
+
+        if (allowedOrigins is null || allowedOrigins.Length == 0)
+        {
+            throw new InvalidOperationException("Nenhuma origem foi configurada em CORS:AllowedOrigins.");
+        }
+
+        corsBuilder.WithOrigins(allowedOrigins);
         corsBuilder.AllowAnyMethod();
         corsBuilder.AllowAnyHeader();
         corsBuilder.AllowCredentials();
