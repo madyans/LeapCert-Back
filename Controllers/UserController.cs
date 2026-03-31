@@ -30,7 +30,7 @@ public class UserController : ControllerBase
     {
         var result = await _userRepository.Authenticate(user, HttpContext);
 
-        if (!result.Flag) ResponseHelper.HandleError(this, result);
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
         return Ok(result);
     }
@@ -40,7 +40,7 @@ public class UserController : ControllerBase
     {
         var result = _userRepository.ValidateToken(token);
 
-        if (!result.Flag) ResponseHelper.HandleError(this, result);
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
         return Ok(result);
     }

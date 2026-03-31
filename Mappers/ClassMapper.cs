@@ -1,6 +1,5 @@
 using leapcert_back.Dtos.Class;
 using leapcert_back.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace leapcert_back.Mappers;
 
@@ -51,6 +50,22 @@ public static class ClassMapper
             created_at = DateTime.UtcNow,
             nome = dto.nome,
             genero = dto.genero
+        };
+    }
+
+    public static ReadClassCatalogDto ToCatalogDto(this Class course, int codigoProfessor)
+    {
+        return new ReadClassCatalogDto
+        {
+            codigo = course.codigo,
+            codigo_professor = codigoProfessor,
+            nome = course.nome,
+            descricao = course.descricao,
+            avaliacao = course.avaliacao ?? "0.0",
+            created_at = course.created_at,
+            codigo_genero = course.genero,
+            genero = course.GenderJoin?.nome ?? "",
+            path = course.PathJoin?.path,
         };
     }
 }

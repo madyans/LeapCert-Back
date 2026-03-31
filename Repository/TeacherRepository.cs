@@ -46,6 +46,21 @@ namespace leapcert_back.Repository
             if (dto == null)
                 return new ErrorResponse(false, 400, "Informações do curso não podem ser nulas");
 
+            if (dto.codigo_professor < 1)
+                return new ErrorResponse(false, 400, "Código do professor inválido. Faça login novamente.");
+
+            var professorExists = await _context.Usuario.AnyAsync(u => u.codigo == dto.codigo_professor);
+            if (!professorExists)
+                return new ErrorResponse(false, 400, "Professor não encontrado no sistema. Faça login novamente.");
+
+            if (dto.genero is not int gen || gen < 1)
+                return new ErrorResponse(false, 400, "Selecione uma categoria válida.");
+
+            var genderExists = await _context.tb_genero.AnyAsync(g => g.codigo == gen);
+            if (!genderExists)
+                return new ErrorResponse(false, 400, "Categoria inválida.");
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var classMapped = dto.ToCreateClassDto();
@@ -54,7 +69,17 @@ namespace leapcert_back.Repository
                 await _context.SaveChangesAsync();
 
                 if (classMapped.codigo == 0)
+                {
+                    await transaction.RollbackAsync();
                     return new ErrorResponse(false, 500, "Erro interno: código do curso não foi gerado.");
+                }
+
+                var minioFolder = await _minioRepository.CreateFolder("/", dto.nome);
+                if (!minioFolder.Flag)
+                {
+                    await transaction.RollbackAsync();
+                    return minioFolder;
+                }
 
                 UserClass newUserClass = new UserClass()
                 {
@@ -69,16 +94,16 @@ namespace leapcert_back.Repository
                     path = dto.nome + "/",
                 };
 
-                await _minioRepository.CreateFolder("/", dto.nome);
-
                 await _context.tb_usuario_curso.AddAsync(newUserClass);
                 await _context.tb_curso_path.AddAsync(newClassPath);
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return new SuccessResponse<Class>(true, 200, "Curso criado com sucesso", classMapped);
             }
             catch (Exception e)
             {
+                await transaction.RollbackAsync();
                 return new ErrorResponse(false, 500, $"Erro ao criar curso: {e.Message}");
             }
         }

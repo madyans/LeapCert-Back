@@ -53,6 +53,7 @@ public class JwtService
             new Claim("codigo", user.codigo),
             new Claim("usuario", user.usuario),
             new Claim("nome", user.nome),
+            new Claim("perfil", user.perfil.ToString()),
             new Claim("loginTimeStamp", DateTime.UtcNow.ToString())
         });
 
@@ -73,6 +74,7 @@ public class JwtService
             user.codigo,
             user.usuario,
             user.nome,
+            user.perfil,
             DateTime.Now.NowInBrasilia().ToString(),
             tokenString
         );

@@ -22,7 +22,7 @@ public class ClassController : ControllerBase
     {
         var result = await _classRepository.GetAllAsync();
 
-        if (!result.Flag) ResponseHelper.HandleError(this, result);
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
         return Ok(result);
     }
@@ -33,7 +33,7 @@ public class ClassController : ControllerBase
     {
         var result = await _classRepository.GetByIdAsync(id);
 
-        if (!result.Flag) ResponseHelper.HandleError(this, result);
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
         return Ok(result);
     }
@@ -44,7 +44,7 @@ public class ClassController : ControllerBase
     {
         var result = await _classRepository.GetTeacherByClass(id);
 
-        if (!result.Flag) ResponseHelper.HandleError(this, result);
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
         return Ok(result);
     }

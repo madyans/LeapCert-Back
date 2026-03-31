@@ -69,19 +69,19 @@ public class MinIoController : ControllerBase
     {
         var result = await _minioRepository.GetObject(bucketInfo);
 
-        if (result is not ResponseFactory.SuccessResponse<Task<string>> typedResult)
+        if (result is not ResponseFactory.SuccessResponse<string> typedResult)
             return ResponseHelper.HandleError(this, result);
 
-        var url = await typedResult.Data;
+        var url = typedResult.Data;
 
         using var httpClient = new HttpClient();
-        var imageBytes = await httpClient.GetByteArrayAsync(url);
+        var mediaBytes = await httpClient.GetByteArrayAsync(url);
 
         var contentType = GetContentType(bucketInfo.objectName);
-        return File(imageBytes, contentType);
+        return File(mediaBytes, contentType);
     }
 
-    private string GetContentType(string fileName)
+    private static string GetContentType(string fileName)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         return ext switch
@@ -89,6 +89,12 @@ public class MinIoController : ControllerBase
             ".png" => "image/png",
             ".jpg" or ".jpeg" => "image/jpeg",
             ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".mp4" => "video/mp4",
+            ".webm" => "video/webm",
+            ".mov" => "video/quicktime",
+            ".mkv" => "video/x-matroska",
+            ".pdf" => "application/pdf",
             _ => "application/octet-stream",
         };
     }

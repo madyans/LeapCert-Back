@@ -8,8 +8,9 @@ namespace leapcert_back.Dtos.MinIo
 {
     public class UploadFileDto
     {
-        [FromForm]
+        [FromForm(Name = "File")]
         public IFormFile File { get; set; }
+        [FromForm(Name = "path")]
         public string path { get; set; }
     }
 }

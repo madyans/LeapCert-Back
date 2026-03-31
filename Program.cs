@@ -9,11 +9,22 @@ using leapcert_back.Responses;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.OpenApi.Models;
 using leapcert_back.Context;
 using Minio;
 
 var builder = WebApplication.CreateBuilder(args);
+
+const long maxUploadBytes = 5L * 1024 * 1024 * 1024;
+builder.Services.Configure<FormOptions>(o =>
+{
+    o.MultipartBodyLengthLimit = maxUploadBytes;
+});
+builder.WebHost.ConfigureKestrel(o =>
+{
+    o.Limits.MaxRequestBodySize = maxUploadBytes;
+});
 
 // Configuração do CORS
 builder.Services.AddCors(options =>
@@ -126,7 +137,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddMinio(configureClient => configureClient
     .WithEndpoint(builder.Configuration["MinIO:EndPoint"])
     .WithCredentials(builder.Configuration["MinIO:AccessKey"], builder.Configuration["MinIO:SecretKey"])
-    .WithSSL(true)
+    .WithSSL(builder.Configuration.GetValue("MinIO:UseSSL", true))
     .Build());
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();

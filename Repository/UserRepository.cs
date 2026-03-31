@@ -68,9 +68,10 @@ public class UserRepository : IUserRepository
             return new ErrorResponse(false, 400, "Senha incorreta");
         
         CreateUserSessionDTO userSession = new CreateUserSessionDTO(
-            existedUser.codigo.ToString(), 
-            existedUser.usuario, 
-            existedUser.nome
+            existedUser.codigo.ToString(),
+            existedUser.usuario,
+            existedUser.nome,
+            existedUser.perfil
             );
 
         ReadUserSessionDTO loggedUser = _jwtService.GenerateJwtToken(userSession);
@@ -94,15 +95,31 @@ public class UserRepository : IUserRepository
     
     public void SetTokensInsideCookie(string token, HttpContext context)
     {
-        context.Response.Cookies.Append("accessToken", token, new CookieOptions
+        var domain = _configuration["Jwt:Domain"];
+        var secure = _configuration.GetValue("Jwt:CookieSecure", true);
+        var sameSiteRaw = _configuration["Jwt:CookieSameSite"];
+        var sameSite = sameSiteRaw?.Trim().ToLowerInvariant() switch
+        {
+            "lax" => SameSiteMode.Lax,
+            "strict" => SameSiteMode.Strict,
+            "none" => SameSiteMode.None,
+            _ => SameSiteMode.None
+        };
+
+        var options = new CookieOptions
         {
             Expires = DateTime.Now.NowInBrasilia().AddHours(5),
             HttpOnly = true,
             IsEssential = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
+            Secure = secure,
+            SameSite = sameSite,
             Path = "/",
-            Domain = _configuration["Jwt:Domain"]
-        });
+        };
+        if (!string.IsNullOrWhiteSpace(domain))
+        {
+            options.Domain = domain;
+        }
+
+        context.Response.Cookies.Append("accessToken", token, options);
     }
 } 

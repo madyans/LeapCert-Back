@@ -1,13 +1,10 @@
-using CommunityToolkit.HighPerformance;
 using leapcert_back.Dtos.MinIo;
 using leapcert_back.Interfaces;
 using leapcert_back.Responses;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Minio;
 using Minio.DataModel;
 using Minio.DataModel.Args;
-using Minio.DataModel.Encryption;
 using static leapcert_back.Responses.ResponseFactory;
 
 namespace leapcert_back.Repository;
@@ -23,20 +20,59 @@ public class MinIoRepository : IMinIoRepository
         _configuration = configuration;
     }
 
+    private static string NormalizeFolderPrefix(string path, string folderName)
+    {
+        var root = string.IsNullOrWhiteSpace(path) || path == "/"
+            ? ""
+            : path.Trim().Trim('/').Replace('\\', '/');
+        var name = (folderName ?? "").Trim().Trim('/').Replace('\\', '/');
+        if (string.IsNullOrEmpty(name))
+            return "";
+        return string.IsNullOrEmpty(root) ? $"{name}/" : $"{root}/{name}/";
+    }
+
+    private static string NormalizeObjectKey(string folderPath, string fileName)
+    {
+        var folder = (folderPath ?? "").Trim().Trim('/').Replace('\\', '/');
+        var safeName = Path.GetFileName(fileName ?? "");
+        foreach (var c in new[] { '<', '>', ':', '"', '|', '?', '*', '\0' })
+            safeName = safeName.Replace(c, '_');
+        if (string.IsNullOrWhiteSpace(safeName))
+            safeName = "arquivo.bin";
+        return string.IsNullOrEmpty(folder) ? safeName : $"{folder}/{safeName}";
+    }
+
+    private async Task EnsureBucketAsync(string bucket)
+    {
+        var existsArgs = new BucketExistsArgs().WithBucket(bucket);
+        var exists = await minioClient.BucketExistsAsync(existsArgs).ConfigureAwait(false);
+        if (!exists)
+        {
+            await minioClient.MakeBucketAsync(new MakeBucketArgs().WithBucket(bucket)).ConfigureAwait(false);
+        }
+    }
+
     public async Task<IResponses> GetObject([FromQuery] GetObjectDto dto)
     {
-        var prefix = Uri.UnescapeDataString(dto.objectName);
-
         if (string.IsNullOrEmpty(dto.objectName))
             return new ErrorResponse(false, 400, "Objeto não informado.");
 
-        var args = new PresignedGetObjectArgs()
-            .WithBucket(_configuration["MinIO:Bucket"])
-            .WithObject(prefix)
-            .WithExpiry(60 * 60);
+        var objectKey = Uri.UnescapeDataString(dto.objectName).TrimStart('/');
 
-        var url = minioClient.PresignedGetObjectAsync(args);
-        return new SuccessResponse<Task<string>>(true, 200, "Objeto encontrado com sucesso", url);
+        try
+        {
+            var args = new PresignedGetObjectArgs()
+                .WithBucket(_configuration["MinIO:Bucket"])
+                .WithObject(objectKey)
+                .WithExpiry(60 * 60);
+
+            var url = await minioClient.PresignedGetObjectAsync(args).ConfigureAwait(false);
+            return new SuccessResponse<string>(true, 200, "Objeto encontrado com sucesso", url);
+        }
+        catch (Exception ex)
+        {
+            return new ErrorResponse(false, 502, $"MinIO: {ex.Message}");
+        }
     }
 
     public async Task<IResponses> GetBucketItems([FromQuery] ListObjectsAsDto dto) // para consultar os objetos dentro de uma pasta => folderName/
@@ -80,34 +116,67 @@ public class MinIoRepository : IMinIoRepository
 
     public async Task<IResponses> CreateFolder(string path, string folderName)
     {
-        var args = new PutObjectArgs()
-        .WithBucket(_configuration["MinIO:Bucket"])
-        .WithObject(path + folderName + "/")
-        .WithFileName("n.txt");
+        var bucket = _configuration["MinIO:Bucket"];
+        var folderKey = NormalizeFolderPrefix(path ?? "", folderName ?? "");
+        if (string.IsNullOrEmpty(folderKey))
+            return new ErrorResponse(false, 400, "Nome da pasta inválido.");
 
-        var name = await minioClient.PutObjectAsync(args).ConfigureAwait(false);
-        return new SuccessResponse<Minio.DataModel.Response.PutObjectResponse>(true, 200, "Pasta criada com sucesso", name);
+        try
+        {
+            await EnsureBucketAsync(bucket).ConfigureAwait(false);
+            var placeholder = new byte[] { 0x20 };
+            using var stream = new MemoryStream(placeholder, writable: false);
+            var args = new PutObjectArgs()
+                .WithBucket(bucket)
+                .WithObject(folderKey)
+                .WithStreamData(stream)
+                .WithObjectSize(placeholder.Length)
+                .WithContentType("application/octet-stream");
+
+            var name = await minioClient.PutObjectAsync(args).ConfigureAwait(false);
+            return new SuccessResponse<Minio.DataModel.Response.PutObjectResponse>(true, 200, "Pasta criada com sucesso", name);
+        }
+        catch (Exception ex)
+        {
+            return new ErrorResponse(false, 502, $"MinIO: não foi possível criar a pasta ({ex.Message})");
+        }
     }
 
     public async Task<IResponses> PutObject(UploadFileDto dto)
     {
-        if (dto.File == null || dto.File.Length == 0)
+        if (dto == null || dto.File == null || dto.File.Length == 0)
             return new ErrorResponse(false, 400, "Arquivo inválido.");
 
-        var path = $"{dto.path}/{dto.File.FileName}";
+        if (string.IsNullOrWhiteSpace(dto.path))
+            return new ErrorResponse(false, 400, "Informe o caminho (path) da pasta do curso.");
+
         var bucket = _configuration["MinIO:Bucket"];
+        if (string.IsNullOrWhiteSpace(bucket))
+            return new ErrorResponse(false, 500, "Bucket MinIO não configurado.");
 
-        using var stream = dto.File.OpenReadStream();
+        var objectKey = NormalizeObjectKey(dto.path, dto.File.FileName);
+        var contentType = string.IsNullOrWhiteSpace(dto.File.ContentType)
+            ? "application/octet-stream"
+            : dto.File.ContentType;
 
-        var args = new PutObjectArgs()
-            .WithBucket(bucket)
-            .WithObject(path)
-            .WithStreamData(stream)
-            .WithObjectSize(dto.File.Length)
-            .WithContentType(dto.File.ContentType);
+        try
+        {
+            await EnsureBucketAsync(bucket).ConfigureAwait(false);
 
-        var result = await minioClient.PutObjectAsync(args);
+            using var stream = dto.File.OpenReadStream();
+            var args = new PutObjectArgs()
+                .WithBucket(bucket)
+                .WithObject(objectKey)
+                .WithStreamData(stream)
+                .WithObjectSize(dto.File.Length)
+                .WithContentType(contentType);
 
-        return new SuccessResponse<Minio.DataModel.Response.PutObjectResponse>(true, 200, "Arquivo enviado com sucesso", result);
+            var result = await minioClient.PutObjectAsync(args).ConfigureAwait(false);
+            return new SuccessResponse<Minio.DataModel.Response.PutObjectResponse>(true, 200, "Arquivo enviado com sucesso", result);
+        }
+        catch (Exception ex)
+        {
+            return new ErrorResponse(false, 502, $"MinIO: falha ao enviar arquivo ({ex.Message})");
+        }
     }
 }
