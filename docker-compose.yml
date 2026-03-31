@@ -7,6 +7,9 @@ services:
       dockerfile: Dockerfile
       args:
         - BUILD_CONFIGURATION=Production
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
     ports:
       - "6030:8080"
     networks:
