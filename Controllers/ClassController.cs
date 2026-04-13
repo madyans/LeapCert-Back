@@ -16,7 +16,7 @@ public class ClassController : ControllerBase
         _classRepository = classRepository;
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpGet]
     public async Task<IActionResult> GetClasses()
     {
@@ -27,7 +27,7 @@ public class ClassController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetClass(int id)
     {
@@ -38,7 +38,7 @@ public class ClassController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpGet("getTeacherClass/{id}")]
     public async Task<IActionResult> GetTeacherByClass(int id)
     {
