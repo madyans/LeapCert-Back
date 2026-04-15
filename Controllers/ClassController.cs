@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using leapcert_back.Helper;
 using leapcert_back.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using static leapcert_back.Responses.ResponseFactory;
 
 namespace leapcert_back.Controllers;
 
@@ -27,11 +29,16 @@ public class ClassController : ControllerBase
         return Ok(result);
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetClass(int id)
     {
-        var result = await _classRepository.GetByIdAsync(id);
+        var codigo = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("codigo");
+        if (string.IsNullOrEmpty(codigo) || !int.TryParse(codigo, out var userId))
+            return Unauthorized(new ErrorResponse(false, 401, "Sessão inválida. Faça login novamente."));
+
+        var result = await _classRepository.GetByIdAsync(id, userId);
 
         if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
