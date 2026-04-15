@@ -11,7 +11,7 @@ public class ResponseHelper
         {
             400 => controller.BadRequest(response),
             401 => controller.Unauthorized(response),
-            403 => controller.Forbid(),
+            403 => controller.StatusCode(StatusCodes.Status403Forbidden, response),
             404 => controller.NotFound(response),
             500 => controller.StatusCode(StatusCodes.Status500InternalServerError, response),
             _ => controller.StatusCode(response.StatusCode, response)

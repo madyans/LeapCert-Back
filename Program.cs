@@ -165,11 +165,11 @@ app.UseCors("CorsPolicy");
 // Habilita WebSockets
 app.UseWebSockets();
 
-// Mapeia os controllers
-app.MapControllers();
-
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Mapeia os controllers
+app.MapControllers();
 
 // Executa a aplicação
 await app.RunAsync();

@@ -68,7 +68,14 @@ public class ClassRepository : IClassRepository
         return new SuccessResponse<List<ReadClassCatalogDto>>(true, 200, "Cursos encontrados", catalog);
     }
 
-    public async Task<IResponses> GetByIdAsync(int id)
+    private async Task<bool> UserHasPublishedActiveCourseAsync(int userId)
+    {
+        return await _context.tb_usuario_curso
+            .AsNoTracking()
+            .AnyAsync(uc => uc.codigo_usuario == userId);
+    }
+
+    public async Task<IResponses> GetByIdAsync(int id, int requestingUserId)
     {
         var course = await _context.tb_usuario_curso
             .Include(uc => uc.ClassJoin)
@@ -79,6 +86,15 @@ public class ClassRepository : IClassRepository
 
         if (course == null)
             return new ErrorResponse(false, 400, "Nenhum curso encontrado nesse id");
+
+        var isCourseOwner = course.codigo_usuario == requestingUserId;
+        if (!isCourseOwner && !await UserHasPublishedActiveCourseAsync(requestingUserId))
+        {
+            return new ErrorResponse(
+                false,
+                403,
+                "Apenas professores com ao menos um curso cadastrado podem ver detalhes de cursos de outros.");
+        }
 
         var mappedClass = course.ToReadClassDto();
 
