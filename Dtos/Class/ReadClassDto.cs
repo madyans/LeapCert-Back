@@ -11,4 +11,15 @@ public class ReadClassDto
     public int? codigo_genero { get; set; }
     public string genero { get; set; }
     public string? path { get; set; }
+    public string conteudo_descricao { get; set; } = string.Empty;
+    public string instrutor_resumo { get; set; } = string.Empty;
+    public decimal? minha_nota { get; set; }
+    public string? meu_comentario { get; set; }
+    public List<ReadCourseSectionDto> secoes { get; set; } = new();
+    public List<CourseLearningPathItemDto> trilha { get; set; } = new();
+    public List<CourseForumTopicDto> forum_topicos { get; set; } = new();
+    public List<CourseAssessmentItemDto> avaliacoes_itens { get; set; } = new();
+    public List<CourseCertificateDto> certificados { get; set; } = new();
+    public CourseTeacherContactDto? contato_professor { get; set; }
+    public List<CourseUserNoteDto> anotacoes { get; set; } = new();
 }

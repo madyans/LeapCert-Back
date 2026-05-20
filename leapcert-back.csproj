@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>leapcert_back</RootNamespace>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DefaultItemExcludes>$(DefaultItemExcludes);LeapCert-Back.Tests/**/*;LeapCert-Back.Tests\**\*</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,6 +32,13 @@
   <ItemGroup>
     <Content Include=".github\workflows\deploy.yml" />
     <Content Include=".github\workflows\discord.yml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="LeapCert-Back.Tests/**/*;LeapCert-Back.Tests\**\*" />
+    <Content Remove="LeapCert-Back.Tests/**/*;LeapCert-Back.Tests\**\*" />
+    <None Remove="LeapCert-Back.Tests/**/*;LeapCert-Back.Tests\**\*" />
+    <EmbeddedResource Remove="LeapCert-Back.Tests/**/*;LeapCert-Back.Tests\**\*" />
   </ItemGroup>
 
 </Project>

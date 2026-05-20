@@ -17,4 +17,10 @@ public class Class
     // joins
     public Gender GenderJoin { get; set; }
     public ClassPath PathJoin { get; set; }
+    public ICollection<CourseSection> SectionsJoin { get; set; } = new List<CourseSection>();
+    public ICollection<CourseLearningPathItem> LearningPathJoin { get; set; } = new List<CourseLearningPathItem>();
+    public ICollection<CourseForumTopic> ForumTopicsJoin { get; set; } = new List<CourseForumTopic>();
+    public ICollection<CourseAssessmentItem> AssessmentItemsJoin { get; set; } = new List<CourseAssessmentItem>();
+    public ICollection<CourseCertificate> CertificatesJoin { get; set; } = new List<CourseCertificate>();
+    public CourseTeacherContact? TeacherContactJoin { get; set; }
 }

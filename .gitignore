@@ -5,6 +5,7 @@
 
 # dotenv files
 .env
+.worktrees/
 
 # User-specific files
 *.rsuser
