@@ -10,6 +10,7 @@ public class CourseLearningPathItemDto
     public string? arquivo_path { get; set; }
     public string? arquivo_tipo { get; set; }
     public int ordem { get; set; }
+    public bool concluido_usuario { get; set; }
 }
 
 public class CourseForumTopicDto
@@ -82,4 +83,29 @@ public class CreateCourseForumTopicDto
 {
     public string titulo { get; set; } = string.Empty;
     public string resumo { get; set; } = string.Empty;
+}
+
+public class CourseProgressDto
+{
+    public int codigo_curso { get; set; }
+    public int total_itens { get; set; }
+    public int itens_concluidos { get; set; }
+    public int percentual { get; set; }
+}
+
+public class CourseConnectionDto
+{
+    public int codigo_curso { get; set; }
+    public string connection_status { get; set; } = "connected";
+    public bool is_owner { get; set; }
+    public bool is_connected { get; set; }
+    public bool can_access_content { get; set; }
+    public CourseProgressDto progresso { get; set; } = new();
+}
+
+public class StudentCoursesDto
+{
+    public List<ReadClassCatalogDto> cursos_criados { get; set; } = new();
+    public List<ReadClassCatalogDto> cursos_conectados { get; set; } = new();
+    public List<ReadClassCatalogDto> cursos_em_andamento { get; set; } = new();
 }

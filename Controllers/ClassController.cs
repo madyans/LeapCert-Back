@@ -23,7 +23,22 @@ public class ClassController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetClasses()
     {
-        var result = await _classRepository.GetAllAsync();
+        var result = await _classRepository.GetAllAsync(GetAuthenticatedUserId());
+
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpGet("student/courses")]
+    public async Task<IActionResult> GetStudentCourses()
+    {
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+            return Unauthorized(new ErrorResponse(false, 401, "Sessão inválida. Faça login novamente."));
+
+        var result = await _classRepository.GetStudentCoursesAsync(userId.Value);
 
         if (!result.Flag) return ResponseHelper.HandleError(this, result);
 
@@ -39,6 +54,51 @@ public class ClassController : ControllerBase
             return Unauthorized(new ErrorResponse(false, 401, "Sessão inválida. Faça login novamente."));
 
         var result = await _classRepository.GetByIdAsync(id, userId.Value);
+
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("{id}/connect")]
+    public async Task<IActionResult> ConnectToCourse(int id)
+    {
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+            return Unauthorized(new ErrorResponse(false, 401, "Sessão inválida. Faça login novamente."));
+
+        var result = await _classRepository.ConnectToCourseAsync(id, userId.Value);
+
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("{id}/learning-path/{itemId}/complete")]
+    public async Task<IActionResult> CompleteLearningPathItem(int id, int itemId)
+    {
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+            return Unauthorized(new ErrorResponse(false, 401, "Sessão inválida. Faça login novamente."));
+
+        var result = await _classRepository.CompleteLearningPathItemAsync(id, itemId, userId.Value);
+
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpDelete("{id}/learning-path/{itemId}/complete")]
+    public async Task<IActionResult> UncompleteLearningPathItem(int id, int itemId)
+    {
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+            return Unauthorized(new ErrorResponse(false, 401, "Sessão inválida. Faça login novamente."));
+
+        var result = await _classRepository.UncompleteLearningPathItemAsync(id, itemId, userId.Value);
 
         if (!result.Flag) return ResponseHelper.HandleError(this, result);
 

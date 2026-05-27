@@ -24,6 +24,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<CourseCertificate> tb_curso_certificado { get; set; }
     public DbSet<CourseTeacherContact> tb_curso_professor_contato { get; set; }
     public DbSet<CourseUserNote> tb_curso_anotacao_usuario { get; set; }
+    public DbSet<CourseConnection> tb_curso_conexao_usuario { get; set; }
+    public DbSet<CourseLearningPathProgress> tb_curso_trilha_progresso_usuario { get; set; }
 
     //JOINS: 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -143,6 +145,56 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(note => note.codigo_usuario)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CourseConnection>()
+            .HasIndex(connection => new { connection.codigo_usuario, connection.codigo_curso })
+            .IsUnique();
+
+        modelBuilder.Entity<CourseConnection>()
+            .HasIndex(connection => new { connection.codigo_curso, connection.status });
+
+        modelBuilder.Entity<CourseConnection>()
+            .HasOne(connection => connection.UserJoin)
+            .WithMany()
+            .HasForeignKey(connection => connection.codigo_usuario)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CourseConnection>()
+            .HasOne(connection => connection.CreatorJoin)
+            .WithMany()
+            .HasForeignKey(connection => connection.codigo_criador_curso)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CourseConnection>()
+            .HasOne(connection => connection.ClassJoin)
+            .WithMany()
+            .HasForeignKey(connection => connection.codigo_curso)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CourseLearningPathProgress>()
+            .HasIndex(progress => new { progress.codigo_usuario, progress.codigo_trilha_item })
+            .IsUnique();
+
+        modelBuilder.Entity<CourseLearningPathProgress>()
+            .HasIndex(progress => new { progress.codigo_usuario, progress.codigo_curso });
+
+        modelBuilder.Entity<CourseLearningPathProgress>()
+            .HasOne(progress => progress.UserJoin)
+            .WithMany()
+            .HasForeignKey(progress => progress.codigo_usuario)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CourseLearningPathProgress>()
+            .HasOne(progress => progress.ClassJoin)
+            .WithMany()
+            .HasForeignKey(progress => progress.codigo_curso)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CourseLearningPathProgress>()
+            .HasOne(progress => progress.LearningPathItemJoin)
+            .WithMany()
+            .HasForeignKey(progress => progress.codigo_trilha_item)
+            .OnDelete(DeleteBehavior.NoAction);
 
         base.OnModelCreating(modelBuilder);
     }

@@ -10,7 +10,13 @@ public class ReadClassDto
     public string nome { get; set; }
     public int? codigo_genero { get; set; }
     public string genero { get; set; }
+    public string nome_professor { get; set; } = string.Empty;
     public string? path { get; set; }
+    public string connection_status { get; set; } = "available";
+    public bool is_owner { get; set; }
+    public bool is_connected { get; set; }
+    public bool can_access_content { get; set; }
+    public int progresso_usuario { get; set; }
     public string conteudo_descricao { get; set; } = string.Empty;
     public string instrutor_resumo { get; set; } = string.Empty;
     public decimal? minha_nota { get; set; }

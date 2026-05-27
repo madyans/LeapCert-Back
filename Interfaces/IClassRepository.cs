@@ -2,8 +2,12 @@ namespace leapcert_back.Interfaces;
 
 public interface IClassRepository
 {
-    Task<IResponses> GetAllAsync();
+    Task<IResponses> GetAllAsync(int? requestingUserId = null);
     Task<IResponses> GetByIdAsync(int id, int requestingUserId);
+    Task<IResponses> GetStudentCoursesAsync(int requestingUserId);
+    Task<IResponses> ConnectToCourseAsync(int courseId, int requestingUserId);
+    Task<IResponses> CompleteLearningPathItemAsync(int courseId, int itemId, int requestingUserId);
+    Task<IResponses> UncompleteLearningPathItemAsync(int courseId, int itemId, int requestingUserId);
     Task<IResponses> UpsertCourseRatingAsync(int courseId, int requestingUserId, Dtos.Class.UpsertCourseRatingDto dto);
     Task<IResponses> UpdateCourseTopicsAsync(int courseId, int requestingUserId, Dtos.Class.CourseTopicsDto dto);
     Task<IResponses> CreateCourseForumTopicAsync(int courseId, int requestingUserId, Dtos.Class.CreateCourseForumTopicDto dto);

@@ -14,7 +14,7 @@ namespace LeapCert_Back.Tests;
 public class ClassRepositoryTests
 {
     [Fact]
-    public async Task GetByIdAsync_ReturnsForbidden_WhenUserHasNoCreatedCourse()
+    public async Task GetByIdAsync_ReturnsCourseSummary_WhenUserIsNotConnected()
     {
         using var context = BuildContext();
         SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
@@ -22,9 +22,11 @@ public class ClassRepositoryTests
 
         var result = await repository.GetByIdAsync(10, requestingUserId: 2);
 
-        var forbidden = Assert.IsType<ErrorResponse>(result);
-        Assert.Equal(403, forbidden.StatusCode);
-        Assert.Equal("Apenas usuarios com pelo menos um curso criado podem acessar os detalhes de cursos.", forbidden.Message);
+        var success = Assert.IsType<SuccessResponse<ReadClassDto>>(result);
+        Assert.False(success.Data.can_access_content);
+        Assert.False(success.Data.is_connected);
+        Assert.Equal("available", success.Data.connection_status);
+        Assert.Null(success.Data.path);
     }
 
     [Fact]
@@ -33,6 +35,7 @@ public class ClassRepositoryTests
         using var context = BuildContext();
         SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
         SeedCourseWithTeacher(context, courseId: 11, teacherId: 2);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1);
         var repository = BuildRepository(context);
 
         var result = await repository.GetByIdAsync(10, requestingUserId: 2);
@@ -66,6 +69,7 @@ public class ClassRepositoryTests
         using var context = BuildContext();
         SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
         SeedCourseWithTeacher(context, courseId: 11, teacherId: 2);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1);
         var repository = BuildRepository(context);
 
         var result = await repository.UpsertCourseRatingAsync(10, 2, new UpsertCourseRatingDto
@@ -93,6 +97,7 @@ public class ClassRepositoryTests
         using var context = BuildContext();
         SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
         SeedCourseWithTeacher(context, courseId: 11, teacherId: 2);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1);
         context.tb_curso_avaliacao.Add(new CourseRating
         {
             codigo_curso = 10,
@@ -130,6 +135,7 @@ public class ClassRepositoryTests
         using var context = BuildContext();
         SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
         SeedCourseWithTeacher(context, courseId: 11, teacherId: 2);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1);
         SeedUser(context, userId: 3, name: "Reviewer 3");
         context.tb_curso_avaliacao.Add(new CourseRating
         {
@@ -164,6 +170,7 @@ public class ClassRepositoryTests
         using var context = BuildContext();
         SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
         SeedCourseWithTeacher(context, courseId: 11, teacherId: 2);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1);
         SeedUser(context, userId: 3, name: "Reviewer 3");
         context.tb_curso_avaliacao.Add(new CourseRating
         {
@@ -194,6 +201,7 @@ public class ClassRepositoryTests
         using var context = BuildContext();
         SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
         SeedCourseWithTeacher(context, courseId: 11, teacherId: 2);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1);
         var repository = BuildRepository(context);
 
         var result = await repository.UpsertCourseRatingAsync(10, 2, new UpsertCourseRatingDto
@@ -233,6 +241,7 @@ public class ClassRepositoryTests
         using var context = BuildContext();
         SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
         SeedCourseWithTeacher(context, courseId: 11, teacherId: 2);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1);
         var repository = BuildRepository(context);
 
         var result = await repository.UpsertCourseRatingAsync(10, 2, new UpsertCourseRatingDto
@@ -254,6 +263,7 @@ public class ClassRepositoryTests
             setupContext.Database.EnsureCreated();
             SeedCourseWithTeacher(setupContext, courseId: 10, teacherId: 1);
             SeedCourseWithTeacher(setupContext, courseId: 11, teacherId: 2);
+            SeedCourseConnection(setupContext, courseId: 10, userId: 2, creatorId: 1);
         }
 
         await using var context = BuildThrowOnSecondSaveSqliteContext(connection);
@@ -279,6 +289,7 @@ public class ClassRepositoryTests
             setupContext.Database.EnsureCreated();
             SeedCourseWithTeacher(setupContext, courseId: 10, teacherId: 1);
             SeedCourseWithTeacher(setupContext, courseId: 11, teacherId: 2);
+            SeedCourseConnection(setupContext, courseId: 10, userId: 2, creatorId: 1);
         }
 
         await using var context = BuildDuplicateInsertOnFirstSaveSqliteContext(connection);
@@ -389,6 +400,28 @@ public class ClassRepositoryTests
                 codigo_curso = courseId,
                 codigo_usuario = teacherId,
                 data_matricula = DateTime.UtcNow,
+            });
+        }
+
+        context.SaveChanges();
+    }
+
+    private static void SeedCourseConnection(ApplicationDbContext context, int courseId, int userId, int creatorId)
+    {
+        SeedUser(context, userId, $"Connected {userId}");
+        SeedUser(context, creatorId, $"Teacher {creatorId}");
+
+        if (!context.tb_curso_conexao_usuario.Any(connection => connection.codigo_curso == courseId && connection.codigo_usuario == userId))
+        {
+            var now = DateTime.UtcNow;
+            context.tb_curso_conexao_usuario.Add(new CourseConnection
+            {
+                codigo_curso = courseId,
+                codigo_usuario = userId,
+                codigo_criador_curso = creatorId,
+                status = "connected",
+                created_at = now,
+                updated_at = now,
             });
         }
 

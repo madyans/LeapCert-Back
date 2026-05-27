@@ -13,7 +13,8 @@ namespace leapcert_back.Repository;
 
 public class ClassRepository : IClassRepository
 {
-    private const string CourseDetailAccessForbiddenMessage = "Apenas usuarios com pelo menos um curso criado podem acessar os detalhes de cursos.";
+    private const string CourseAccessForbiddenMessage = "Conecte-se ao curso para acessar este recurso.";
+    private const string ConnectedStatus = "connected";
 
     private readonly ApplicationDbContext _context;
     private readonly IMinIoRepository _minioRepository;
@@ -24,7 +25,7 @@ public class ClassRepository : IClassRepository
         _minioRepository = minioRepository;
     }
 
-    public async Task<IResponses> GetAllAsync()
+    public async Task<IResponses> GetAllAsync(int? requestingUserId = null)
     {
         var courses = await _context.tb_curso
             .AsNoTracking()
@@ -33,17 +34,34 @@ public class ClassRepository : IClassRepository
             .OrderByDescending(c => c.created_at)
             .ToListAsync();
 
-        var enrollments = await _context.tb_usuario_curso.AsNoTracking().ToListAsync();
-        var profLookup = enrollments
+        var enrollments = await _context.tb_usuario_curso
+            .AsNoTracking()
+            .Include(uc => uc.UserJoin)
+            .ToListAsync();
+        var ownerLookup = enrollments
             .GroupBy(uc => uc.codigo_curso)
-            .ToDictionary(g => g.Key, g => g.First().codigo_usuario);
+            .ToDictionary(g => g.Key, g => g.First());
+        var connectedCourseIds = requestingUserId == null
+            ? new HashSet<int>()
+            : await GetConnectedCourseIdsAsync(requestingUserId.Value);
+        var progressLookup = requestingUserId == null
+            ? new Dictionary<int, int>()
+            : await GetProgressLookupAsync(requestingUserId.Value);
 
         var catalog = new List<ReadClassCatalogDto>();
 
         foreach (var course in courses)
         {
-            profLookup.TryGetValue(course.codigo, out var profId);
-            var dto = course.ToCatalogDto(profId);
+            ownerLookup.TryGetValue(course.codigo, out var owner);
+            var ownerId = owner?.codigo_usuario ?? 0;
+            var isOwner = requestingUserId != null && ownerId == requestingUserId.Value;
+            var isConnected = connectedCourseIds.Contains(course.codigo);
+            progressLookup.TryGetValue(course.codigo, out var progressPercent);
+            var dto = course.ToCatalogDto(ownerId, owner?.UserJoin?.nome ?? "", isOwner, isConnected, progressPercent);
+            if (!dto.can_access_content)
+            {
+                dto.path = null;
+            }
 
             var rawPath = dto.path?.Trim();
             if (!string.IsNullOrEmpty(rawPath))
@@ -72,17 +90,11 @@ public class ClassRepository : IClassRepository
         return new SuccessResponse<List<ReadClassCatalogDto>>(true, 200, "Cursos encontrados", catalog);
     }
 
-    private async Task<bool> UserHasPublishedActiveCourseAsync(int userId)
-    {
-        return await _context.tb_usuario_curso
-            .AsNoTracking()
-            .AnyAsync(uc => uc.codigo_usuario == userId);
-    }
-
     public async Task<IResponses> GetByIdAsync(int id, int requestingUserId)
     {
         var courseOwnerRow = await _context.tb_usuario_curso
             .AsNoTracking()
+            .Include(uc => uc.UserJoin)
             .Include(uc => uc.ClassJoin)
             .ThenInclude(c => c.GenderJoin)
             .Include(uc => uc.ClassJoin)
@@ -107,33 +119,240 @@ public class ClassRepository : IClassRepository
             return new ErrorResponse(false, 400, "Nenhum curso encontrado nesse id");
 
         var isCourseOwner = courseOwnerRow.codigo_usuario == requestingUserId;
-        if (!isCourseOwner && !await UserHasPublishedActiveCourseAsync(requestingUserId))
-        {
-            return new ErrorResponse(false, 403, CourseDetailAccessForbiddenMessage);
-        }
+        var isConnected = await IsUserConnectedToCourseAsync(id, requestingUserId);
+        var canAccessContent = isCourseOwner || isConnected;
 
         var currentUserRating = await _context.tb_curso_avaliacao
             .AsNoTracking()
             .FirstOrDefaultAsync(cr => cr.codigo_curso == id && cr.codigo_usuario == requestingUserId);
 
-        var mappedClass = courseOwnerRow.ToReadClassDto(currentUserRating?.nota, currentUserRating?.comentario);
-        mappedClass.anotacoes = await _context.tb_curso_anotacao_usuario
-            .AsNoTracking()
-            .Where(note => note.codigo_curso == id && note.codigo_usuario == requestingUserId)
-            .OrderByDescending(note => note.updated_at)
-            .Select(note => new CourseUserNoteDto
-            {
-                codigo = note.codigo,
-                codigo_curso = note.codigo_curso,
-                codigo_usuario = note.codigo_usuario,
-                titulo = note.titulo,
-                conteudo = note.conteudo,
-                created_at = note.created_at,
-                updated_at = note.updated_at,
-            })
-            .ToListAsync();
+        var completedItems = await GetCompletedLearningPathItemIdsAsync(id, requestingUserId);
+        var progress = CalculateProgress(courseOwnerRow.ClassJoin.LearningPathJoin.Count, completedItems.Count);
+        var mappedClass = courseOwnerRow.ToReadClassDto(
+            currentUserRating?.nota,
+            currentUserRating?.comentario,
+            completedItems,
+            isCourseOwner,
+            isConnected,
+            canAccessContent,
+            progress);
+        mappedClass.is_owner = isCourseOwner;
+        mappedClass.is_connected = isConnected;
+        mappedClass.can_access_content = canAccessContent;
+        mappedClass.connection_status = isCourseOwner ? "owner" : isConnected ? ConnectedStatus : "available";
+        mappedClass.progresso_usuario = progress;
+        mappedClass.path = canAccessContent ? mappedClass.path : null;
+
+        if (canAccessContent)
+        {
+            mappedClass.anotacoes = await _context.tb_curso_anotacao_usuario
+                .AsNoTracking()
+                .Where(note => note.codigo_curso == id && note.codigo_usuario == requestingUserId)
+                .OrderByDescending(note => note.updated_at)
+                .Select(note => new CourseUserNoteDto
+                {
+                    codigo = note.codigo,
+                    codigo_curso = note.codigo_curso,
+                    codigo_usuario = note.codigo_usuario,
+                    titulo = note.titulo,
+                    conteudo = note.conteudo,
+                    created_at = note.created_at,
+                    updated_at = note.updated_at,
+                })
+                .ToListAsync();
+        }
 
         return new SuccessResponse<ReadClassDto>(true, 200, "Curso encontrado", mappedClass);
+    }
+
+    public async Task<IResponses> GetStudentCoursesAsync(int requestingUserId)
+    {
+        var ownedRows = await _context.tb_usuario_curso
+            .AsNoTracking()
+            .Include(uc => uc.UserJoin)
+            .Include(uc => uc.ClassJoin).ThenInclude(c => c.GenderJoin)
+            .Include(uc => uc.ClassJoin).ThenInclude(c => c.PathJoin)
+            .Where(uc => uc.codigo_usuario == requestingUserId)
+            .ToListAsync();
+
+        var connectedRows = await _context.tb_curso_conexao_usuario
+            .AsNoTracking()
+            .Include(connection => connection.ClassJoin).ThenInclude(c => c.GenderJoin)
+            .Include(connection => connection.ClassJoin).ThenInclude(c => c.PathJoin)
+            .Include(connection => connection.CreatorJoin)
+            .Where(connection => connection.codigo_usuario == requestingUserId && connection.status == ConnectedStatus)
+            .ToListAsync();
+
+        var progressLookup = await GetProgressLookupAsync(requestingUserId);
+
+        var ownedCourses = ownedRows
+            .Select(row =>
+            {
+                progressLookup.TryGetValue(row.codigo_curso, out var progress);
+                return row.ClassJoin.ToCatalogDto(row.codigo_usuario, row.UserJoin?.nome ?? "", isOwner: true, progressPercent: progress);
+            })
+            .OrderByDescending(course => course.created_at)
+            .ToList();
+
+        var connectedCourses = connectedRows
+            .Select(row =>
+            {
+                progressLookup.TryGetValue(row.codigo_curso, out var progress);
+                return row.ClassJoin.ToCatalogDto(row.codigo_criador_curso, row.CreatorJoin?.nome ?? "", isConnected: true, progressPercent: progress);
+            })
+            .OrderByDescending(course => course.created_at)
+            .ToList();
+
+        var inProgressCourses = connectedCourses
+            .Concat(ownedCourses)
+            .Where(course => course.progresso_usuario > 0 && course.progresso_usuario < 100)
+            .OrderByDescending(course => course.progresso_usuario)
+            .ToList();
+
+        return new SuccessResponse<StudentCoursesDto>(
+            true,
+            200,
+            "Cursos do aluno encontrados",
+            new StudentCoursesDto
+            {
+                cursos_criados = ownedCourses,
+                cursos_conectados = connectedCourses,
+                cursos_em_andamento = inProgressCourses,
+            });
+    }
+
+    public async Task<IResponses> ConnectToCourseAsync(int courseId, int requestingUserId)
+    {
+        var owner = await _context.tb_usuario_curso
+            .AsNoTracking()
+            .FirstOrDefaultAsync(uc => uc.codigo_curso == courseId);
+
+        if (owner == null)
+        {
+            return new ErrorResponse(false, 404, "Curso não encontrado.");
+        }
+
+        if (owner.codigo_usuario == requestingUserId)
+        {
+            return new SuccessResponse<CourseConnectionDto>(
+                true,
+                200,
+                "Você é o criador deste curso.",
+                new CourseConnectionDto
+                {
+                    codigo_curso = courseId,
+                    connection_status = "owner",
+                    is_owner = true,
+                    can_access_content = true,
+                    progresso = await BuildProgressDtoAsync(courseId, requestingUserId),
+                });
+        }
+
+        var existingConnection = await _context.tb_curso_conexao_usuario
+            .FirstOrDefaultAsync(connection => connection.codigo_curso == courseId && connection.codigo_usuario == requestingUserId);
+
+        if (existingConnection == null)
+        {
+            var now = DateTime.UtcNow;
+            existingConnection = new CourseConnection
+            {
+                codigo_curso = courseId,
+                codigo_usuario = requestingUserId,
+                codigo_criador_curso = owner.codigo_usuario,
+                status = ConnectedStatus,
+                created_at = now,
+                updated_at = now,
+            };
+
+            await _context.tb_curso_conexao_usuario.AddAsync(existingConnection);
+        }
+        else
+        {
+            existingConnection.status = ConnectedStatus;
+            existingConnection.codigo_criador_curso = owner.codigo_usuario;
+            existingConnection.updated_at = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return new SuccessResponse<CourseConnectionDto>(
+            true,
+            200,
+            "Conexão com o curso criada com sucesso.",
+            new CourseConnectionDto
+            {
+                codigo_curso = courseId,
+                connection_status = ConnectedStatus,
+                is_connected = true,
+                can_access_content = true,
+                progresso = await BuildProgressDtoAsync(courseId, requestingUserId),
+            });
+    }
+
+    public async Task<IResponses> CompleteLearningPathItemAsync(int courseId, int itemId, int requestingUserId)
+    {
+        if (!await CanAccessCourseContentAsync(courseId, requestingUserId))
+        {
+            return new ErrorResponse(false, 403, CourseAccessForbiddenMessage);
+        }
+
+        var itemExists = await _context.tb_curso_trilha
+            .AnyAsync(item => item.codigo == itemId && item.codigo_curso == courseId);
+
+        if (!itemExists)
+        {
+            return new ErrorResponse(false, 404, "Item da trilha não encontrado.");
+        }
+
+        var now = DateTime.UtcNow;
+        var progress = await _context.tb_curso_trilha_progresso_usuario
+            .FirstOrDefaultAsync(item => item.codigo_usuario == requestingUserId && item.codigo_trilha_item == itemId);
+
+        if (progress == null)
+        {
+            progress = new CourseLearningPathProgress
+            {
+                codigo_usuario = requestingUserId,
+                codigo_curso = courseId,
+                codigo_trilha_item = itemId,
+                concluido = true,
+                concluido_em = now,
+                created_at = now,
+                updated_at = now,
+            };
+            await _context.tb_curso_trilha_progresso_usuario.AddAsync(progress);
+        }
+        else
+        {
+            progress.concluido = true;
+            progress.concluido_em ??= now;
+            progress.updated_at = now;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return new SuccessResponse<CourseProgressDto>(true, 200, "Item concluído.", await BuildProgressDtoAsync(courseId, requestingUserId));
+    }
+
+    public async Task<IResponses> UncompleteLearningPathItemAsync(int courseId, int itemId, int requestingUserId)
+    {
+        if (!await CanAccessCourseContentAsync(courseId, requestingUserId))
+        {
+            return new ErrorResponse(false, 403, CourseAccessForbiddenMessage);
+        }
+
+        var progress = await _context.tb_curso_trilha_progresso_usuario
+            .FirstOrDefaultAsync(item => item.codigo_usuario == requestingUserId && item.codigo_curso == courseId && item.codigo_trilha_item == itemId);
+
+        if (progress != null)
+        {
+            progress.concluido = false;
+            progress.concluido_em = null;
+            progress.updated_at = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        return new SuccessResponse<CourseProgressDto>(true, 200, "Conclusão removida.", await BuildProgressDtoAsync(courseId, requestingUserId));
     }
 
     public async Task<IResponses> UpdateCourseTopicsAsync(int courseId, int requestingUserId, CourseTopicsDto dto)
@@ -268,6 +487,11 @@ public class ClassRepository : IClassRepository
             return new ErrorResponse(false, 404, "Curso não encontrado.");
         }
 
+        if (!await CanAccessCourseContentAsync(courseId, requestingUserId))
+        {
+            return new ErrorResponse(false, 403, CourseAccessForbiddenMessage);
+        }
+
         var now = DateTime.UtcNow;
         var note = new CourseUserNote
         {
@@ -301,13 +525,9 @@ public class ClassRepository : IClassRepository
             return new ErrorResponse(false, 404, "Curso não encontrado.");
         }
 
-        var isCourseOwner = await _context.tb_usuario_curso
-            .AsNoTracking()
-            .AnyAsync(uc => uc.codigo_curso == courseId && uc.codigo_usuario == requestingUserId);
-
-        if (!isCourseOwner && !await UserHasPublishedActiveCourseAsync(requestingUserId))
+        if (!await CanAccessCourseContentAsync(courseId, requestingUserId))
         {
-            return new ErrorResponse(false, 403, CourseDetailAccessForbiddenMessage);
+            return new ErrorResponse(false, 403, CourseAccessForbiddenMessage);
         }
 
         var author = await _context.Usuario
@@ -400,13 +620,9 @@ public class ClassRepository : IClassRepository
             return new ErrorResponse(false, 404, "Curso não encontrado.");
         }
 
-        var isCourseOwner = await _context.tb_usuario_curso
-            .AsNoTracking()
-            .AnyAsync(uc => uc.codigo_curso == courseId && uc.codigo_usuario == requestingUserId);
-
-        if (!isCourseOwner && !await UserHasPublishedActiveCourseAsync(requestingUserId))
+        if (!await CanAccessCourseContentAsync(courseId, requestingUserId))
         {
-            return new ErrorResponse(false, 403, CourseDetailAccessForbiddenMessage);
+            return new ErrorResponse(false, 403, CourseAccessForbiddenMessage);
         }
 
         var now = DateTime.UtcNow;
@@ -522,6 +738,95 @@ public class ClassRepository : IClassRepository
         var mappadUserClass = userClass.ToReadTeacherClassDto();
 
         return new SuccessResponse<ReadTeacherClassDto>(true, 200, "Professor encontrado", mappadUserClass);
+    }
+
+    private async Task<bool> CanAccessCourseContentAsync(int courseId, int userId)
+    {
+        return await _context.tb_usuario_curso
+            .AsNoTracking()
+            .AnyAsync(uc => uc.codigo_curso == courseId && uc.codigo_usuario == userId)
+            || await IsUserConnectedToCourseAsync(courseId, userId);
+    }
+
+    private async Task<bool> IsUserConnectedToCourseAsync(int courseId, int userId)
+    {
+        return await _context.tb_curso_conexao_usuario
+            .AsNoTracking()
+            .AnyAsync(connection =>
+                connection.codigo_curso == courseId &&
+                connection.codigo_usuario == userId &&
+                connection.status == ConnectedStatus);
+    }
+
+    private async Task<HashSet<int>> GetConnectedCourseIdsAsync(int userId)
+    {
+        return (await _context.tb_curso_conexao_usuario
+                .AsNoTracking()
+                .Where(connection => connection.codigo_usuario == userId && connection.status == ConnectedStatus)
+                .Select(connection => connection.codigo_curso)
+                .ToListAsync())
+            .ToHashSet();
+    }
+
+    private async Task<HashSet<int>> GetCompletedLearningPathItemIdsAsync(int courseId, int userId)
+    {
+        return (await _context.tb_curso_trilha_progresso_usuario
+                .AsNoTracking()
+                .Where(progress =>
+                    progress.codigo_curso == courseId &&
+                    progress.codigo_usuario == userId &&
+                    progress.concluido)
+                .Select(progress => progress.codigo_trilha_item)
+                .ToListAsync())
+            .ToHashSet();
+    }
+
+    private async Task<Dictionary<int, int>> GetProgressLookupAsync(int userId)
+    {
+        var totalByCourse = await _context.tb_curso_trilha
+            .AsNoTracking()
+            .GroupBy(item => item.codigo_curso)
+            .Select(group => new { CourseId = group.Key, Total = group.Count() })
+            .ToDictionaryAsync(item => item.CourseId, item => item.Total);
+
+        var completedByCourse = await _context.tb_curso_trilha_progresso_usuario
+            .AsNoTracking()
+            .Where(progress => progress.codigo_usuario == userId && progress.concluido)
+            .GroupBy(progress => progress.codigo_curso)
+            .Select(group => new { CourseId = group.Key, Completed = group.Count() })
+            .ToDictionaryAsync(item => item.CourseId, item => item.Completed);
+
+        return totalByCourse.ToDictionary(
+            item => item.Key,
+            item => CalculateProgress(item.Value, completedByCourse.TryGetValue(item.Key, out var completed) ? completed : 0));
+    }
+
+    private async Task<CourseProgressDto> BuildProgressDtoAsync(int courseId, int userId)
+    {
+        var total = await _context.tb_curso_trilha
+            .AsNoTracking()
+            .CountAsync(item => item.codigo_curso == courseId);
+        var completed = await _context.tb_curso_trilha_progresso_usuario
+            .AsNoTracking()
+            .CountAsync(item => item.codigo_curso == courseId && item.codigo_usuario == userId && item.concluido);
+
+        return new CourseProgressDto
+        {
+            codigo_curso = courseId,
+            total_itens = total,
+            itens_concluidos = completed,
+            percentual = CalculateProgress(total, completed),
+        };
+    }
+
+    private static int CalculateProgress(int totalItems, int completedItems)
+    {
+        if (totalItems <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp((int)Math.Round((decimal)completedItems / totalItems * 100, MidpointRounding.AwayFromZero), 0, 100);
     }
 
     private static string FormatAggregateRating(decimal value)

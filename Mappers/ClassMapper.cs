@@ -6,7 +6,15 @@ namespace leapcert_back.Mappers;
 public static class ClassMapper
 {
     private const string DefaultCourseContentDescription = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
-    public static ReadClassDto ToReadClassDto(this UserClass dto, decimal? minhaNota = null, string? meuComentario = null)
+    public static ReadClassDto ToReadClassDto(
+        this UserClass dto,
+        decimal? minhaNota = null,
+        string? meuComentario = null,
+        ISet<int>? completedLearningPathItems = null,
+        bool isOwner = true,
+        bool isConnected = false,
+        bool canAccessContent = true,
+        int progressPercent = 0)
     {
         var contentDescription = string.IsNullOrWhiteSpace(dto.ClassJoin.descricao)
             ? DefaultCourseContentDescription
@@ -36,6 +44,7 @@ public static class ClassMapper
                 arquivo_path = item.arquivo_path,
                 arquivo_tipo = item.arquivo_tipo,
                 ordem = item.ordem,
+                concluido_usuario = completedLearningPathItems?.Contains(item.codigo) ?? item.concluido_padrao,
             })
             .ToList();
 
@@ -96,6 +105,7 @@ public static class ClassMapper
         {
             codigo = dto.ClassJoin.codigo,
             codigo_professor = dto.codigo_usuario,
+            nome_professor = dto.UserJoin?.nome ?? "",
             nome = dto.ClassJoin.nome,
             descricao = contentDescription,
             avaliacao = dto.ClassJoin.avaliacao ?? "0.0",
@@ -103,6 +113,11 @@ public static class ClassMapper
             codigo_genero = dto.ClassJoin.genero,
             genero = dto.ClassJoin.GenderJoin.nome,
             path = dto.ClassJoin.PathJoin != null ? dto.ClassJoin.PathJoin.path : null,
+            is_owner = isOwner,
+            is_connected = isConnected,
+            can_access_content = canAccessContent,
+            connection_status = isOwner ? "owner" : isConnected ? "connected" : "available",
+            progresso_usuario = progressPercent,
             conteudo_descricao = contentDescription,
             instrutor_resumo = contentDescription,
             minha_nota = minhaNota,
@@ -148,12 +163,20 @@ public static class ClassMapper
         };
     }
 
-    public static ReadClassCatalogDto ToCatalogDto(this Class course, int codigoProfessor)
+    public static ReadClassCatalogDto ToCatalogDto(
+        this Class course,
+        int codigoProfessor,
+        string nomeProfessor = "",
+        bool isOwner = false,
+        bool isConnected = false,
+        int progressPercent = 0)
     {
+        var connectionStatus = isOwner ? "owner" : isConnected ? "connected" : "available";
         return new ReadClassCatalogDto
         {
             codigo = course.codigo,
             codigo_professor = codigoProfessor,
+            nome_professor = nomeProfessor,
             nome = course.nome,
             descricao = course.descricao,
             avaliacao = course.avaliacao ?? "0.0",
@@ -161,6 +184,11 @@ public static class ClassMapper
             codigo_genero = course.genero,
             genero = course.GenderJoin?.nome ?? "",
             path = course.PathJoin?.path,
+            connection_status = connectionStatus,
+            is_owner = isOwner,
+            is_connected = isConnected,
+            can_access_content = isOwner || isConnected,
+            progresso_usuario = progressPercent,
         };
     }
 }
