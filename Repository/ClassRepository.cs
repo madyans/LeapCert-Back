@@ -15,6 +15,7 @@ public class ClassRepository : IClassRepository
 {
     private const string CourseAccessForbiddenMessage = "Conecte-se ao curso para acessar este recurso.";
     private const string ConnectedStatus = "connected";
+    private const int ProgressAlertDelayDays = 5;
 
     private readonly ApplicationDbContext _context;
     private readonly IMinIoRepository _minioRepository;
@@ -219,6 +220,127 @@ public class ClassRepository : IClassRepository
                 cursos_conectados = connectedCourses,
                 cursos_em_andamento = inProgressCourses,
             });
+    }
+
+    public async Task<IResponses> GetStudentProgressAlertsAsync(int requestingUserId)
+    {
+        var now = DateTime.UtcNow;
+        var connectedCourses = await _context.tb_curso_conexao_usuario
+            .AsNoTracking()
+            .Include(connection => connection.ClassJoin)
+            .Where(connection => connection.codigo_usuario == requestingUserId && connection.status == ConnectedStatus)
+            .ToListAsync();
+
+        if (connectedCourses.Count == 0)
+        {
+            return new SuccessResponse<List<CourseProgressAlertDto>>(true, 200, "Alertas de progresso encontrados.", new());
+        }
+
+        var courseIds = connectedCourses.Select(connection => connection.codigo_curso).ToHashSet();
+        var progressLookup = await GetProgressSnapshotLookupAsync(requestingUserId);
+        var lastProgressEventLookup = await GetLastCompletedLearningPathProgressLookupAsync(requestingUserId, courseIds);
+        var alertLookup = await _context.tb_curso_alerta_progresso_usuario
+            .Where(alert => alert.codigo_usuario == requestingUserId && courseIds.Contains(alert.codigo_curso))
+            .ToDictionaryAsync(alert => alert.codigo_curso);
+
+        var pendingAlerts = new List<(CourseProgressAlert Alert, string CourseName, int CurrentProgress)>();
+        var hasChanges = false;
+
+        foreach (var connection in connectedCourses)
+        {
+            if (!progressLookup.TryGetValue(connection.codigo_curso, out var progress) || progress.TotalItems <= 0)
+            {
+                continue;
+            }
+
+            var currentProgress = progress.Percent;
+            if (!alertLookup.TryGetValue(connection.codigo_curso, out var alert))
+            {
+                var baselineDate = GetInitialProgressAlertBaseline(
+                    connection.created_at,
+                    currentProgress,
+                    lastProgressEventLookup.TryGetValue(connection.codigo_curso, out var initialProgressEvent) ? initialProgressEvent : null);
+                alert = new CourseProgressAlert
+                {
+                    codigo_usuario = requestingUserId,
+                    codigo_curso = connection.codigo_curso,
+                    ultimo_percentual = currentProgress,
+                    ultima_evolucao_em = baselineDate,
+                    created_at = now,
+                    updated_at = now,
+                };
+                await _context.tb_curso_alerta_progresso_usuario.AddAsync(alert);
+                alertLookup[connection.codigo_curso] = alert;
+                hasChanges = true;
+            }
+            else if (currentProgress > alert.ultimo_percentual)
+            {
+                var lastProgressEventDate = lastProgressEventLookup.TryGetValue(connection.codigo_curso, out var increasedProgressEvent)
+                    ? increasedProgressEvent
+                    : now;
+                alert.ultimo_percentual = currentProgress;
+                alert.ultima_evolucao_em = lastProgressEventDate > alert.ultima_evolucao_em ? lastProgressEventDate : now;
+                alert.ultima_exibicao_em = null;
+                alert.updated_at = now;
+                hasChanges = true;
+            }
+            else if (currentProgress < alert.ultimo_percentual)
+            {
+                alert.ultimo_percentual = currentProgress;
+                alert.ultima_evolucao_em = now;
+                alert.ultima_exibicao_em = null;
+                alert.updated_at = now;
+                hasChanges = true;
+            }
+
+            if (currentProgress >= 100)
+            {
+                continue;
+            }
+
+            if (ShouldShowProgressAlert(alert, now))
+            {
+                pendingAlerts.Add((alert, connection.ClassJoin?.nome ?? "Curso", currentProgress));
+            }
+        }
+
+        if (hasChanges)
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        var alerts = pendingAlerts
+            .Select(item => ToCourseProgressAlertDto(item.Alert, item.CourseName, item.CurrentProgress, now))
+            .OrderByDescending(alert => alert.dias_sem_evolucao)
+            .ThenBy(alert => alert.nome_curso)
+            .ToList();
+
+        return new SuccessResponse<List<CourseProgressAlertDto>>(true, 200, "Alertas de progresso encontrados.", alerts);
+    }
+
+    public async Task<IResponses> MarkStudentProgressAlertSeenAsync(int alertId, int requestingUserId)
+    {
+        var alert = await _context.tb_curso_alerta_progresso_usuario
+            .Include(item => item.ClassJoin)
+            .FirstOrDefaultAsync(item => item.codigo == alertId && item.codigo_usuario == requestingUserId);
+
+        if (alert == null)
+        {
+            return new ErrorResponse(false, 404, "Alerta de progresso não encontrado.");
+        }
+
+        var now = DateTime.UtcNow;
+        alert.ultima_exibicao_em = now;
+        alert.updated_at = now;
+        await _context.SaveChangesAsync();
+
+        var progress = await BuildProgressDtoAsync(alert.codigo_curso, requestingUserId);
+
+        return new SuccessResponse<CourseProgressAlertDto>(
+            true,
+            200,
+            "Alerta de progresso marcado como visto.",
+            ToCourseProgressAlertDto(alert, alert.ClassJoin?.nome ?? "Curso", progress.percentual, now));
     }
 
     public async Task<IResponses> ConnectToCourseAsync(int courseId, int requestingUserId)
@@ -783,6 +905,12 @@ public class ClassRepository : IClassRepository
 
     private async Task<Dictionary<int, int>> GetProgressLookupAsync(int userId)
     {
+        var progressSnapshot = await GetProgressSnapshotLookupAsync(userId);
+        return progressSnapshot.ToDictionary(item => item.Key, item => item.Value.Percent);
+    }
+
+    private async Task<Dictionary<int, (int TotalItems, int CompletedItems, int Percent)>> GetProgressSnapshotLookupAsync(int userId)
+    {
         var totalByCourse = await _context.tb_curso_trilha
             .AsNoTracking()
             .GroupBy(item => item.codigo_curso)
@@ -798,7 +926,25 @@ public class ClassRepository : IClassRepository
 
         return totalByCourse.ToDictionary(
             item => item.Key,
-            item => CalculateProgress(item.Value, completedByCourse.TryGetValue(item.Key, out var completed) ? completed : 0));
+            item =>
+            {
+                var completed = completedByCourse.TryGetValue(item.Key, out var value) ? value : 0;
+                return (item.Value, completed, CalculateProgress(item.Value, completed));
+            });
+    }
+
+    private async Task<Dictionary<int, DateTime>> GetLastCompletedLearningPathProgressLookupAsync(int userId, ISet<int> courseIds)
+    {
+        return await _context.tb_curso_trilha_progresso_usuario
+            .AsNoTracking()
+            .Where(progress => courseIds.Contains(progress.codigo_curso) && progress.codigo_usuario == userId && progress.concluido)
+            .GroupBy(progress => progress.codigo_curso)
+            .Select(group => new
+            {
+                CourseId = group.Key,
+                LastProgressAt = group.Max(progress => progress.concluido_em ?? progress.updated_at),
+            })
+            .ToDictionaryAsync(item => item.CourseId, item => item.LastProgressAt);
     }
 
     private async Task<CourseProgressDto> BuildProgressDtoAsync(int courseId, int userId)
@@ -816,6 +962,44 @@ public class ClassRepository : IClassRepository
             total_itens = total,
             itens_concluidos = completed,
             percentual = CalculateProgress(total, completed),
+        };
+    }
+
+    private static bool ShouldShowProgressAlert(CourseProgressAlert alert, DateTime now)
+    {
+        if ((now - alert.ultima_evolucao_em).TotalDays < ProgressAlertDelayDays)
+        {
+            return false;
+        }
+
+        return alert.ultima_exibicao_em == null
+            || (now - alert.ultima_exibicao_em.Value).TotalDays >= ProgressAlertDelayDays;
+    }
+
+    private static DateTime GetInitialProgressAlertBaseline(DateTime connectedAt, int currentProgress, DateTime? lastProgressEvent)
+    {
+        if (currentProgress <= 0 || lastProgressEvent == null)
+        {
+            return connectedAt;
+        }
+
+        return lastProgressEvent.Value > connectedAt ? lastProgressEvent.Value : connectedAt;
+    }
+
+    private static CourseProgressAlertDto ToCourseProgressAlertDto(CourseProgressAlert alert, string courseName, int currentProgress, DateTime now)
+    {
+        var daysWithoutProgress = Math.Max(0, (int)Math.Floor((now - alert.ultima_evolucao_em).TotalDays));
+
+        return new CourseProgressAlertDto
+        {
+            codigo = alert.codigo,
+            codigo_curso = alert.codigo_curso,
+            nome_curso = courseName,
+            progresso_atual = currentProgress,
+            dias_sem_evolucao = daysWithoutProgress,
+            ultima_evolucao_em = alert.ultima_evolucao_em,
+            ultima_exibicao_em = alert.ultima_exibicao_em,
+            mensagem = $"Você está há {daysWithoutProgress} dias sem evoluir em \"{courseName}\". Continue o curso para manter seu progresso.",
         };
     }
 

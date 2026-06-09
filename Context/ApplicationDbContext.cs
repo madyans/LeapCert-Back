@@ -26,6 +26,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<CourseUserNote> tb_curso_anotacao_usuario { get; set; }
     public DbSet<CourseConnection> tb_curso_conexao_usuario { get; set; }
     public DbSet<CourseLearningPathProgress> tb_curso_trilha_progresso_usuario { get; set; }
+    public DbSet<CourseProgressAlert> tb_curso_alerta_progresso_usuario { get; set; }
 
     //JOINS: 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -195,6 +196,25 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(progress => progress.codigo_trilha_item)
             .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<CourseProgressAlert>()
+            .HasIndex(alert => new { alert.codigo_usuario, alert.codigo_curso })
+            .IsUnique();
+
+        modelBuilder.Entity<CourseProgressAlert>()
+            .HasIndex(alert => new { alert.codigo_usuario, alert.ultima_evolucao_em });
+
+        modelBuilder.Entity<CourseProgressAlert>()
+            .HasOne(alert => alert.UserJoin)
+            .WithMany()
+            .HasForeignKey(alert => alert.codigo_usuario)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CourseProgressAlert>()
+            .HasOne(alert => alert.ClassJoin)
+            .WithMany()
+            .HasForeignKey(alert => alert.codigo_curso)
+            .OnDelete(DeleteBehavior.Cascade);
 
         base.OnModelCreating(modelBuilder);
     }

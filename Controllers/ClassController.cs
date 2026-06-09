@@ -46,6 +46,36 @@ public class ClassController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("student/progress-alerts")]
+    public async Task<IActionResult> GetStudentProgressAlerts()
+    {
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+            return Unauthorized(new ErrorResponse(false, 401, "Sessão inválida. Faça login novamente."));
+
+        var result = await _classRepository.GetStudentProgressAlertsAsync(userId.Value);
+
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("student/progress-alerts/{alertId}/seen")]
+    public async Task<IActionResult> MarkStudentProgressAlertSeen(int alertId)
+    {
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+            return Unauthorized(new ErrorResponse(false, 401, "Sessão inválida. Faça login novamente."));
+
+        var result = await _classRepository.MarkStudentProgressAlertSeenAsync(alertId, userId.Value);
+
+        if (!result.Flag) return ResponseHelper.HandleError(this, result);
+
+        return Ok(result);
+    }
+
+    [Authorize]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetClass(int id)
     {

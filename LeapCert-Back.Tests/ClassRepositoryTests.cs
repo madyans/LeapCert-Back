@@ -312,6 +312,142 @@ public class ClassRepositoryTests
         Assert.Equal("4.0", verificationContext.tb_curso.Single(c => c.codigo == 10).avaliacao);
     }
 
+    [Fact]
+    public async Task GetStudentProgressAlertsAsync_ReturnsAlert_WhenProgressDidNotIncreaseForFiveDays()
+    {
+        using var context = BuildContext();
+        SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1, connectedAt: DateTime.UtcNow.AddDays(-6));
+        SeedLearningPathItems(context, courseId: 10, count: 2);
+        var repository = BuildRepository(context);
+
+        var result = await repository.GetStudentProgressAlertsAsync(2);
+
+        var success = Assert.IsType<SuccessResponse<List<CourseProgressAlertDto>>>(result);
+        var alert = Assert.Single(success.Data);
+        Assert.Equal(10, alert.codigo_curso);
+        Assert.Equal(0, alert.progresso_atual);
+        Assert.True(alert.dias_sem_evolucao >= 5);
+        Assert.Contains("Curso 10", alert.mensagem);
+    }
+
+    [Fact]
+    public async Task GetStudentProgressAlertsAsync_DoesNotReturnAlert_BeforeFiveDaysWithoutProgress()
+    {
+        using var context = BuildContext();
+        SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1, connectedAt: DateTime.UtcNow.AddDays(-4));
+        SeedLearningPathItems(context, courseId: 10, count: 2);
+        var repository = BuildRepository(context);
+
+        var result = await repository.GetStudentProgressAlertsAsync(2);
+
+        var success = Assert.IsType<SuccessResponse<List<CourseProgressAlertDto>>>(result);
+        Assert.Empty(success.Data);
+    }
+
+    [Fact]
+    public async Task GetStudentProgressAlertsAsync_DoesNotReturnAlert_WhenCourseIsCompleted()
+    {
+        using var context = BuildContext();
+        SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1, connectedAt: DateTime.UtcNow.AddDays(-6));
+        var itemIds = SeedLearningPathItems(context, courseId: 10, count: 2);
+        foreach (var itemId in itemIds)
+        {
+            SeedCompletedLearningPathProgress(context, courseId: 10, itemId: itemId, userId: 2);
+        }
+        var repository = BuildRepository(context);
+
+        var result = await repository.GetStudentProgressAlertsAsync(2);
+
+        var success = Assert.IsType<SuccessResponse<List<CourseProgressAlertDto>>>(result);
+        Assert.Empty(success.Data);
+    }
+
+    [Fact]
+    public async Task GetStudentProgressAlertsAsync_UsesRecentProgressAsInitialBaseline()
+    {
+        using var context = BuildContext();
+        SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1, connectedAt: DateTime.UtcNow.AddDays(-10));
+        var itemIds = SeedLearningPathItems(context, courseId: 10, count: 2);
+        SeedCompletedLearningPathProgress(context, courseId: 10, itemId: itemIds[0], userId: 2, completedAt: DateTime.UtcNow.AddDays(-1));
+        var repository = BuildRepository(context);
+
+        var result = await repository.GetStudentProgressAlertsAsync(2);
+
+        var success = Assert.IsType<SuccessResponse<List<CourseProgressAlertDto>>>(result);
+        Assert.Empty(success.Data);
+        var storedAlert = Assert.Single(context.tb_curso_alerta_progresso_usuario);
+        Assert.Equal(50, storedAlert.ultimo_percentual);
+        Assert.True(storedAlert.ultima_evolucao_em > DateTime.UtcNow.AddDays(-2));
+    }
+
+
+    [Fact]
+    public async Task GetStudentProgressAlertsAsync_RestartsDelay_WhenProgressIncreases()
+    {
+        using var context = BuildContext();
+        SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1, connectedAt: DateTime.UtcNow.AddDays(-10));
+        var itemIds = SeedLearningPathItems(context, courseId: 10, count: 2);
+        SeedCompletedLearningPathProgress(context, courseId: 10, itemId: itemIds[0], userId: 2);
+        SeedProgressAlert(context, courseId: 10, userId: 2, lastPercent: 0, lastProgressAt: DateTime.UtcNow.AddDays(-8));
+        var repository = BuildRepository(context);
+
+        var result = await repository.GetStudentProgressAlertsAsync(2);
+
+        var success = Assert.IsType<SuccessResponse<List<CourseProgressAlertDto>>>(result);
+        Assert.Empty(success.Data);
+        var storedAlert = Assert.Single(context.tb_curso_alerta_progresso_usuario);
+        Assert.Equal(50, storedAlert.ultimo_percentual);
+        Assert.True(storedAlert.ultima_evolucao_em > DateTime.UtcNow.AddMinutes(-1));
+        Assert.Null(storedAlert.ultima_exibicao_em);
+    }
+
+    [Fact]
+    public async Task GetStudentProgressAlertsAsync_RespectsLastSeenDelay()
+    {
+        using var context = BuildContext();
+        SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1, connectedAt: DateTime.UtcNow.AddDays(-10));
+        SeedLearningPathItems(context, courseId: 10, count: 2);
+        SeedProgressAlert(
+            context,
+            courseId: 10,
+            userId: 2,
+            lastPercent: 0,
+            lastProgressAt: DateTime.UtcNow.AddDays(-10),
+            lastSeenAt: DateTime.UtcNow.AddDays(-2));
+        var repository = BuildRepository(context);
+
+        var result = await repository.GetStudentProgressAlertsAsync(2);
+
+        var success = Assert.IsType<SuccessResponse<List<CourseProgressAlertDto>>>(result);
+        Assert.Empty(success.Data);
+    }
+
+    [Fact]
+    public async Task MarkStudentProgressAlertSeenAsync_UpdatesOnlyOwnedAlert()
+    {
+        using var context = BuildContext();
+        SeedCourseWithTeacher(context, courseId: 10, teacherId: 1);
+        SeedCourseConnection(context, courseId: 10, userId: 2, creatorId: 1, connectedAt: DateTime.UtcNow.AddDays(-10));
+        SeedProgressAlert(context, courseId: 10, userId: 2, lastPercent: 0, lastProgressAt: DateTime.UtcNow.AddDays(-10));
+        var alertId = context.tb_curso_alerta_progresso_usuario.Single().codigo;
+        var repository = BuildRepository(context);
+
+        var otherUserResult = await repository.MarkStudentProgressAlertSeenAsync(alertId, requestingUserId: 3);
+        Assert.IsType<ErrorResponse>(otherUserResult);
+
+        var result = await repository.MarkStudentProgressAlertSeenAsync(alertId, requestingUserId: 2);
+
+        var success = Assert.IsType<SuccessResponse<CourseProgressAlertDto>>(result);
+        Assert.Equal(alertId, success.Data.codigo);
+        Assert.NotNull(context.tb_curso_alerta_progresso_usuario.Single().ultima_exibicao_em);
+    }
+
     private static ApplicationDbContext BuildContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -406,14 +542,14 @@ public class ClassRepositoryTests
         context.SaveChanges();
     }
 
-    private static void SeedCourseConnection(ApplicationDbContext context, int courseId, int userId, int creatorId)
+    private static void SeedCourseConnection(ApplicationDbContext context, int courseId, int userId, int creatorId, DateTime? connectedAt = null)
     {
         SeedUser(context, userId, $"Connected {userId}");
         SeedUser(context, creatorId, $"Teacher {creatorId}");
 
         if (!context.tb_curso_conexao_usuario.Any(connection => connection.codigo_curso == courseId && connection.codigo_usuario == userId))
         {
-            var now = DateTime.UtcNow;
+            var now = connectedAt ?? DateTime.UtcNow;
             context.tb_curso_conexao_usuario.Add(new CourseConnection
             {
                 codigo_curso = courseId,
@@ -425,6 +561,81 @@ public class ClassRepositoryTests
             });
         }
 
+        context.SaveChanges();
+    }
+
+    private static List<int> SeedLearningPathItems(ApplicationDbContext context, int courseId, int count)
+    {
+        var existingItems = context.tb_curso_trilha
+            .Where(item => item.codigo_curso == courseId)
+            .OrderBy(item => item.ordem)
+            .Select(item => item.codigo)
+            .ToList();
+
+        if (existingItems.Count >= count)
+        {
+            return existingItems.Take(count).ToList();
+        }
+
+        var now = DateTime.UtcNow;
+        for (var i = existingItems.Count; i < count; i++)
+        {
+            context.tb_curso_trilha.Add(new CourseLearningPathItem
+            {
+                codigo_curso = courseId,
+                titulo = $"Etapa {i + 1}",
+                tipo = "reading",
+                concluido_padrao = false,
+                ordem = i + 1,
+                created_at = now,
+                updated_at = now,
+            });
+        }
+
+        context.SaveChanges();
+
+        return context.tb_curso_trilha
+            .Where(item => item.codigo_curso == courseId)
+            .OrderBy(item => item.ordem)
+            .Select(item => item.codigo)
+            .ToList();
+    }
+
+    private static void SeedCompletedLearningPathProgress(ApplicationDbContext context, int courseId, int itemId, int userId, DateTime? completedAt = null)
+    {
+        var now = completedAt ?? DateTime.UtcNow;
+        context.tb_curso_trilha_progresso_usuario.Add(new CourseLearningPathProgress
+        {
+            codigo_curso = courseId,
+            codigo_usuario = userId,
+            codigo_trilha_item = itemId,
+            concluido = true,
+            concluido_em = now,
+            created_at = now,
+            updated_at = now,
+        });
+        context.SaveChanges();
+    }
+
+    private static void SeedProgressAlert(
+        ApplicationDbContext context,
+        int courseId,
+        int userId,
+        int lastPercent,
+        DateTime lastProgressAt,
+        DateTime? lastSeenAt = null)
+    {
+        var now = DateTime.UtcNow;
+        context.tb_curso_alerta_progresso_usuario.Add(new CourseProgressAlert
+        {
+            codigo_curso = courseId,
+            codigo_usuario = userId,
+            ultimo_percentual = lastPercent,
+            ultima_evolucao_em = lastProgressAt,
+            ultima_exibicao_em = lastSeenAt,
+            created_at = now,
+            updated_at = now,
+        });
         context.SaveChanges();
     }
 

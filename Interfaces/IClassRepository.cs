@@ -5,6 +5,8 @@ public interface IClassRepository
     Task<IResponses> GetAllAsync(int? requestingUserId = null);
     Task<IResponses> GetByIdAsync(int id, int requestingUserId);
     Task<IResponses> GetStudentCoursesAsync(int requestingUserId);
+    Task<IResponses> GetStudentProgressAlertsAsync(int requestingUserId);
+    Task<IResponses> MarkStudentProgressAlertSeenAsync(int alertId, int requestingUserId);
     Task<IResponses> ConnectToCourseAsync(int courseId, int requestingUserId);
     Task<IResponses> CompleteLearningPathItemAsync(int courseId, int itemId, int requestingUserId);
     Task<IResponses> UncompleteLearningPathItemAsync(int courseId, int itemId, int requestingUserId);
